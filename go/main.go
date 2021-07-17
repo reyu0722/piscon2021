@@ -1412,14 +1412,14 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		c.parent_id as "category.parent_id",
 		c.category_name as "category.category_name",
 		c2.category_name as "category.parent_category_name"
-		FROM items i 
+		FROM (SELECT * from items where id = ? FOR UPDATE) i 
 		left outer join users u on u.id=i.seller_id
 		left outer join categories c on c.id=i.category_id 
 		left outer join categories c2 on c2.id=c.parent_id 
 	`
 
 	targetItem := ItemDetail{}
-	err = tx.Get(&targetItem, queryStr+" WHERE i.id = ? FOR UPDATE", rb.ItemID)
+	err = tx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
