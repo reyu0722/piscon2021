@@ -55,10 +55,10 @@ dev: build
 	./$(BIN_NAME)
 
 .PHONY: bench-dev
-bench-dev: commit before slow-on dev
+bench-dev: before slow-on dev
 
 .PHONY: bench
-bench: commit before slow-on build restart
+bench: before slow-on build restart
 
 .PHONY: maji
 bench: commit before build restart
@@ -121,3 +121,8 @@ setup:
 	sudo mv slackcat /usr/local/bin/
 	sudo chmod +x /usr/local/bin/slackcat
 	slackcat --configure
+	wget https://dev.mysql.com/get/mysql-apt-config_0.8.17-1_all.deb
+	sudo dpkg -i mysql-apt-config_0.8.17-1_all.deb
+	sudo apt update
+	sudo apt install mysql-server -y
+
