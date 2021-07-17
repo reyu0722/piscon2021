@@ -100,6 +100,25 @@ type Item struct {
 	UpdatedAt   time.Time `json:"-" db:"updated_at"`
 }
 
+type ItemDetailDB struct {
+	ID                        int64       `json:"id" db:"id"`
+	SellerID                  int64       `json:"seller_id" db:"seller_id"`
+	Seller                    *UserSimple `json:"seller" db:"seller"`
+	BuyerID                   int64       `json:"buyer_id,omitempty" db:"buyer_id"`
+	Buyer                     *UserSimple `json:"buyer,omitempty" db:"buyer"`
+	Status                    string      `json:"status" db:"status"`
+	Name                      string      `json:"name" db:"name"`
+	Price                     int         `json:"price" db:"price"`
+	Description               string      `json:"description" db:"description"`
+	ImageName                 string      `json:"image_name" db:"image_name"`
+	CategoryID                int         `json:"category_id" db:"category_id"`
+	Category                  *Category   `json:"category" db:"category"`
+	TransactionEvidenceID     int64       `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+	TransactionEvidenceStatus string      `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+	ShippingStatus            string      `json:"shipping_status,omitempty" db:"shipping_status"`
+	CreatedAt                 time.Time   `json:"created_at" db:"created_at"`
+}
+
 type ItemSimple struct {
 	ID         int64       `json:"id"`
 	SellerID   int64       `json:"seller_id"`
@@ -123,7 +142,7 @@ type ItemDetail struct {
 	Name                      string      `json:"name" db:"name"`
 	Price                     int         `json:"price" db:"price"`
 	Description               string      `json:"description" db:"description"`
-	ImageURL                  string      `json:"image_url" db:"image_url"`
+	ImageURL                  string      `json:"image_url" db:"image_name"`
 	CategoryID                int         `json:"category_id" db:"category_id"`
 	Category                  *Category   `json:"category" db:"category"`
 	TransactionEvidenceID     int64       `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
@@ -868,11 +887,35 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	itemDetails := []ItemDetail{}
-	queryStr := `SELECT i.*,  u.id as "seller.id", u.account_name as "seller.account_name", u.hashed_password as "seller.hashed_password", u.address as "seller.address", u.num_sell_items as "seller.num_sell_items", u.last_bump as "seller.last_bump", u.created_at as "seller.created_at", u2.id as "buyer.id", u2.account_name as "buyer.account_name", u2.hashed_password as "buyer.hashed_password", u2.address as "buyer.address", u2.num_sell_items as "buyer.num_sell_items", u2.last_bump as "buyer.last_bump", u2.created_at as "buyer.created_at", c.id as "category.id", c.parent_id as "category.id", c.category_name as "category.category_name", c2.category_name as "category.parent_category_name" FROM items i left outer join users u on u.id=i.seller_id left outer join users u2 on u2.id=i.buyer_id left outer join categories c on c.id=i.category_id left outer join categories c2 on c.parent_id=c2.id `
+	itemDetailDBs := []ItemDetailDB{}
+	queryStr := `SELECT i.*, 
+	u.id as "seller.id",
+	u.account_name as "seller.account_name",
+	u.hashed_password as "seller.hashed_password",
+	u.address as "seller.address",
+	u.num_sell_items as "seller.num_sell_items",
+	u.last_bump as "seller.last_bump",
+	u.created_at as "seller.created_at",
+	u2.id as "buyer.id",
+	u2.account_name as "buyer.account_name",
+	u2.hashed_password as "buyer.hashed_password",
+	u2.address as "buyer.address",
+	u2.num_sell_items as "buyer.num_sell_items",
+	u2.last_bump as "buyer.last_bump",
+	u2.created_at as "buyer.created_at",
+	c.id as "category.id",
+	c.parent_id as "category.id",
+	c.category_name as "category.category_name",
+	c2.category_name as "category.parent_category_name" 
+	FROM items i 
+	left outer join users u on u.id=i.seller_id 
+	left outer join users u2 on u2.id=i.buyer_id 
+	left outer join categories c on c.id=i.category_id 
+	left outer join categories c2 on c.parent_id=c2.id `
+
 	if itemID > 0 && createdAt > 0 {
 		// paging
-		err := tx.Select(&itemDetails,
+		err := tx.Select(&itemDetailDBs,
 			queryStr+"WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
@@ -894,7 +937,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// 1st page
-		err := tx.Select(&itemDetails,
+		err := tx.Select(&itemDetailDBs,
 			queryStr+"WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
@@ -912,7 +955,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	for i, item := range itemDetails {
+	itemDetails := []ItemDetail{}
+
+	for _, item := range itemDetailDBs {
 		/*
 			seller, err := getUserSimpleByID(tx, item.SellerID)
 			if err != nil {
@@ -939,25 +984,25 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			tx.Rollback()
 			return
 		}
+		itemDetail := ItemDetail{
+			ID:       item.ID,
+			SellerID: item.SellerID,
+			Seller:   item.Seller,
+			// BuyerID
+			// Buyer
+			Status:      item.Status,
+			Name:        item.Name,
+			Price:       item.Price,
+			Description: item.Description,
+			ImageURL:    getImageURL(item.ImageName),
+			CategoryID:  item.CategoryID,
+			// TransactionEvidenceID
+			// TransactionEvidenceStatus
+			// ShippingStatus
+			Category:  item.Category,
+			CreatedAt: item.CreatedAt.Unix(),
+		}
 		/*
-			itemDetail := ItemDetail{
-				ID:       item.ID,
-				SellerID: item.SellerID,
-				Seller:   &seller,
-				// BuyerID
-				// Buyer
-				Status:      item.Status,
-				Name:        item.Name,
-				Price:       item.Price,
-				Description: item.Description,
-				ImageURL:    getImageURL(item.ImageName),
-				CategoryID:  item.CategoryID,
-				// TransactionEvidenceID
-				// TransactionEvidenceStatus
-				// ShippingStatus
-				Category:  &category,
-				CreatedAt: item.CreatedAt.Unix(),
-			}
 
 			if item.BuyerID != 0 {
 				buyer, err := getUserSimpleByID(tx, item.BuyerID)
@@ -1013,9 +1058,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			itemDetails[i].TransactionEvidenceID = transactionEvidence.ID
-			itemDetails[i].TransactionEvidenceStatus = transactionEvidence.Status
-			itemDetails[i].ShippingStatus = ssr.Status
+			itemDetail.TransactionEvidenceID = transactionEvidence.ID
+			itemDetail.TransactionEvidenceStatus = transactionEvidence.Status
+			itemDetail.ShippingStatus = ssr.Status
+
+			itemDetails = append(itemDetails, itemDetail)
 		}
 	}
 	tx.Commit()
