@@ -1419,7 +1419,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	`
 
 	targetItem := ItemDetail{}
-	err = tx.Get(&targetItem, queryStr+" WHERE `id` = ? FOR UPDATE", rb.ItemID)
+	err = tx.Get(&targetItem, queryStr+" WHERE i.id = ? FOR UPDATE", rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
