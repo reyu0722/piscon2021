@@ -913,7 +913,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		c.parent_id as "category.parent_id",
 		c.category_name as "category.category_name",
 		c2.category_name as "category.parent_category_name",
-		t.id as "transaction_evidenve_id",
+		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence.status",
 		s.status as "shipping_status"
 		FROM items i 
