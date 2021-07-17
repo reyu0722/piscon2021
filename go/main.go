@@ -896,11 +896,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		left outer join "users" u on u.id=i.seller_id
 		left outer join "users" u2 on u2.id=i.buyer_id
 		left outer join "categories" c on c.id=i.category_id
-	`;
+	`
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetails,
-			queryStr + "WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			queryStr+"WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
@@ -922,7 +922,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&itemDetails,
-			queryStr + "WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			queryStr+"WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
@@ -941,49 +941,70 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, item := range itemDetails {
 		/*
-		seller, err := getUserSimpleByID(tx, item.SellerID)
-		if err != nil {
+			seller, err := getUserSimpleByID(tx, item.SellerID)
+			if err != nil {
+				outputErrorMsg(w, http.StatusNotFound, "seller not found")
+				tx.Rollback()
+				return
+			}
+		*/
+		if item.Seller == nil {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
-		category, err := getCategoryByID(tx, item.CategoryID)
-		if err != nil {
+		/*
+			category, err := getCategoryByID(tx, item.CategoryID)
+			if err != nil {
+				outputErrorMsg(w, http.StatusNotFound, "category not found")
+				tx.Rollback()
+				return
+			}
+		*/
+		if item.Category == nil {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
 		}
+		/*
+			itemDetail := ItemDetail{
+				ID:       item.ID,
+				SellerID: item.SellerID,
+				Seller:   &seller,
+				// BuyerID
+				// Buyer
+				Status:      item.Status,
+				Name:        item.Name,
+				Price:       item.Price,
+				Description: item.Description,
+				ImageURL:    getImageURL(item.ImageName),
+				CategoryID:  item.CategoryID,
+				// TransactionEvidenceID
+				// TransactionEvidenceStatus
+				// ShippingStatus
+				Category:  &category,
+				CreatedAt: item.CreatedAt.Unix(),
+			}
 
-		itemDetail := ItemDetail{
-			ID:       item.ID,
-			SellerID: item.SellerID,
-			Seller:   &seller,
-			// BuyerID
-			// Buyer
-			Status:      item.Status,
-			Name:        item.Name,
-			Price:       item.Price,
-			Description: item.Description,
-			ImageURL:    getImageURL(item.ImageName),
-			CategoryID:  item.CategoryID,
-			// TransactionEvidenceID
-			// TransactionEvidenceStatus
-			// ShippingStatus
-			Category:  &category,
-			CreatedAt: item.CreatedAt.Unix(),
-		}
+			if item.BuyerID != 0 {
+				buyer, err := getUserSimpleByID(tx, item.BuyerID)
+				if err != nil {
+					outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+					tx.Rollback()
+					return
+				}
+				itemDetail.BuyerID = item.BuyerID
+				itemDetail.Buyer = &buyer
+			}
+		*/
 
 		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
+			if item.Buyer == nil {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 				tx.Rollback()
 				return
 			}
-			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &buyer
 		}
-		*/
 
 		transactionEvidence := TransactionEvidence{}
 		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
