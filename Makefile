@@ -52,7 +52,7 @@ test:
 .PHONY: dev
 dev: build 
 	cd $(BUILD_DIR); \
-	./$(BIN_NAME)
+	sudo systemctl restart isucari.golang
 
 .PHONY: bench-dev
 bench-dev: before slow-on dev
