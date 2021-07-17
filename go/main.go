@@ -443,9 +443,9 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 
 func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	type CategoryDB struct {
-		ID                 int    `json:"id" db:"id"`
-		ParentID           int    `json:"parent_id" db:"parent_id"`
-		CategoryName       string `json:"category_name" db:"category_name"`
+		ID                 int            `json:"id" db:"id"`
+		ParentID           int            `json:"parent_id" db:"parent_id"`
+		CategoryName       string         `json:"category_name" db:"category_name"`
 		ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
 	}
 	categoryDB := CategoryDB{}
@@ -1387,8 +1387,39 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 
-	targetItem := Item{}
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", rb.ItemID)
+	type UserSimpleDB struct {
+		ID          sql.NullInt64  `json:"id" db:"id"`
+		AccountName sql.NullString `json:"account_name" db:"account_name"`
+		Address     sql.NullString `json:"address" db:"address"`
+	}
+	type ItemDetail struct {
+		ID          int64         `json:"id" db:"id"`
+		SellerID    int64         `json:"seller_id" db:"seller_id"`
+		Seller      *UserSimpleDB `json:"seller" db:"seller"`
+		Status      string        `json:"status" db:"status"`
+		Name        string        `json:"name" db:"name"`
+		Price       int           `json:"price" db:"price"`
+		Description string        `json:"description" db:"description"`
+		CategoryID  int           `json:"category_id" db:"category_id"`
+		Category    *CategoryDB   `json:"category" db:"category"`
+	}
+
+	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id, 
+		u.id as "seller.id",
+		u.account_name as "seller.account_name",
+		u.address as "seller.address",
+		c.id as "category.id",
+		c.parent_id as "category.parent_id",
+		c.category_name as "category.category_name",
+		c2.category_name as "category.parent_category_name",
+		FROM items i 
+		left outer join users u on u.id=i.seller_id
+		left outer join categories c on c.id=i.category_id 
+		left outer join categories c2 on c2.id=c.parent_id
+	`
+
+	targetItem := ItemDetail{}
+	err = tx.Get(&targetItem, queryStr+"WHERE `id` = ? FOR UPDATE", rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1414,28 +1445,40 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller := User{}
-	err = tx.Get(&seller, "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", targetItem.SellerID)
-	if err == sql.ErrNoRows {
+	if !targetItem.Seller.ID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
 		return
 	}
-	if err != nil {
-		log.Print(err)
 
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
+	seller := User{
+		ID:          targetItem.Seller.ID.Int64,
+		AccountName: targetItem.Seller.AccountName.String,
+		Address:     targetItem.Seller.Address.String,
 	}
 
-	category, err := getCategoryByID(tx, targetItem.CategoryID)
-	if err != nil {
+	/*
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			tx.Rollback()
+			return
+		}
+	*/
+
+	if !targetItem.Category.ID.Valid {
 		log.Print(err)
 
 		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
 		tx.Rollback()
 		return
+	}
+	category := Category{
+		ID:                 int(targetItem.Category.ID.Int32),
+		ParentID:           int(targetItem.Category.ParentID.Int32),
+		CategoryName:       targetItem.Category.CategoryName.String,
+		ParentCategoryName: targetItem.Category.ParentCategoryName.String,
 	}
 
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
