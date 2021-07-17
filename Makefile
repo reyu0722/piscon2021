@@ -65,7 +65,7 @@ bench-dev: pull before slow-on dev
 bench: before slow-on build restart
 
 .PHONY: maji
-bench: commit before build restart
+maji: before build restart
 
 .PHONY: anal
 anal: slow kataru
@@ -92,7 +92,7 @@ before:
 
 .PHONY: slow
 slow: 
-	sudo pt-query-digest $(MYSQL_LOG) | $(SLACKCAT)
+	sudo mysqldumpslow -s t $(MYSQL_LOG) | $(SLACKCAT)
 
 .PHONY: kataru
 kataru:
