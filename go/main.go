@@ -1411,7 +1411,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		c.id as "category.id",
 		c.parent_id as "category.parent_id",
 		c.category_name as "category.category_name",
-		c2.category_name as "category.parent_category_name",
+		c2.category_name as "category.parent_category_name"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id
 		left outer join categories c on c.id=i.category_id 
