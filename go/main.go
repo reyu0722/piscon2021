@@ -1036,34 +1036,34 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
-		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-				tx.Rollback()
-				return
-			}
-			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &buyer
-		}
-
 		/*
 			if item.BuyerID != 0 {
-				if !item.Buyer.ID.Valid {
+				buyer, err := getUserSimpleByID(tx, item.BuyerID)
+				if err != nil {
 					outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 					tx.Rollback()
 					return
 				}
-				/*
-					itemDetail.BuyerID = item.BuyerID
-					itemDetail.Buyer = &UserSimple{
-						ID:           item.Buyer.ID.Int64,
-						AccountName:  item.Buyer.AccountName.String,
-						NumSellItems: int(item.Buyer.NumSellItems.Int32),
-					}
-				/
+				itemDetail.BuyerID = item.BuyerID
+				itemDetail.Buyer = &buyer
 			}
 		*/
+
+		if item.BuyerID != 0 {
+			if !item.Buyer.ID.Valid {
+				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+				tx.Rollback()
+				return
+			}
+
+			itemDetail.BuyerID = item.BuyerID
+			itemDetail.Buyer = &UserSimple{
+				ID:           item.Buyer.ID.Int64,
+				AccountName:  item.Buyer.AccountName.String,
+				NumSellItems: int(item.Buyer.NumSellItems.Int32),
+			}
+
+		}
 
 		transactionEvidence := TransactionEvidence{}
 		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
