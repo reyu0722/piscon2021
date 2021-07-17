@@ -1070,8 +1070,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 			eg.Go(func() error {
 				i := i
+				reserveID := item.ReserveID.String
 				ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-					ReserveID: item.ReserveID.String,
+					ReserveID: reserveID,
 				})
 				if err != nil {
 					return err
