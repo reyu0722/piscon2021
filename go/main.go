@@ -21,6 +21,7 @@ import (
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -969,7 +970,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	itemDetails := []ItemDetail{}
 
-	for _, item := range itemDetailDBs {
+	eg := errgroup.Group{}
+
+	for i, item := range itemDetailDBs {
 		/*
 			seller, err := getUserSimpleByID(tx, item.SellerID)
 			if err != nil {
@@ -1064,21 +1067,30 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				tx.Rollback()
 				return
 			}
-			ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-				ReserveID: item.ReserveID.String,
-			})
-			if err != nil {
-				log.Print(err)
-				outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-				tx.Rollback()
-				return
-			}
 
-			itemDetail.ShippingStatus = ssr.Status
+			eg.Go(func() error {
+				i := i
+				ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
+					ReserveID: item.ReserveID.String,
+				})
+				if err != nil {
+					return err
+				}
+				itemDetails[i].ShippingStatus = ssr.Status
+				return nil
+			})
 
 		}
 		itemDetails = append(itemDetails, itemDetail)
 	}
+
+	if err := eg.Wait(); err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
+		tx.Rollback()
+		return
+	}
+
 	tx.Commit()
 
 	hasNext := false
