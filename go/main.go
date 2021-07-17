@@ -126,8 +126,8 @@ type ItemDetailDB struct {
 	ImageName                 string        `json:"image_name" db:"image_name"`
 	CategoryID                int           `json:"category_id" db:"category_id"`
 	Category                  *CategoryDB   `json:"category" db:"category"`
-	TransactionEvidenceID     int64         `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
-	TransactionEvidenceStatus string        `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+	TransactionEvidenceID     sql.NullInt64         `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+	TransactionEvidenceStatus sql.NullString        `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
 	ShippingStatus            string        `json:"shipping_status,omitempty" db:"shipping_status"`
 	CreatedAt                 time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time     `json:"updated_at" db:"updated_at"`
@@ -1017,8 +1017,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			Description: item.Description,
 			ImageURL:    getImageURL(item.ImageName),
 			CategoryID:  item.CategoryID,
-			TransactionEvidenceID: item.TransactionEvidenceID,
-			TransactionEvidenceStatus: item.TransactionEvidenceStatus,
+			TransactionEvidenceID: item.TransactionEvidenceID.Int64,
+			TransactionEvidenceStatus: item.TransactionEvidenceStatus.String,
 			// ShippingStatus
 			Category: &Category{
 				ID:                 int(item.Category.ID.Int32),
@@ -1058,7 +1058,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if item.TransactionEvidenceID > 0 {
+		if item.TransactionEvidenceID.Int64 > 0 {
 			shipping := Shipping{}
 			err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", item.TransactionEvidenceID)
 			if err == sql.ErrNoRows {
