@@ -81,9 +81,9 @@ type User struct {
 }
 
 type UserSimple struct {
-	ID           int64  `json:"id"`
-	AccountName  string `json:"account_name"`
-	NumSellItems int    `json:"num_sell_items"`
+	ID           int64  `json:"id" db:"id"`
+	AccountName  string `json:"account_name" db:"account_name"`
+	NumSellItems int    `json:"num_sell_items" db:"num_sell_items"`
 }
 
 type Item struct {
@@ -892,18 +892,10 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	queryStr := `SELECT i.*, 
 	u.id as "seller.id",
 	u.account_name as "seller.account_name",
-	u.hashed_password as "seller.hashed_password",
-	u.address as "seller.address",
 	u.num_sell_items as "seller.num_sell_items",
-	u.last_bump as "seller.last_bump",
-	u.created_at as "seller.created_at",
 	u2.id as "buyer.id",
 	u2.account_name as "buyer.account_name",
-	u2.hashed_password as "buyer.hashed_password",
-	u2.address as "buyer.address",
 	u2.num_sell_items as "buyer.num_sell_items",
-	u2.last_bump as "buyer.last_bump",
-	u2.created_at as "buyer.created_at",
 	c.id as "category.id",
 	c.parent_id as "category.id",
 	c.category_name as "category.category_name",
