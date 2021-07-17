@@ -1069,9 +1069,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				tx.Rollback()
 				return
 			}
+			i, reserveID := i, item.ReserveID.String
 
 			eg.Go(func() error {
-				i, reserveID := i, item.ReserveID.String
 				ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 					ReserveID: reserveID,
 				})
