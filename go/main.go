@@ -128,7 +128,7 @@ type ItemDetailDB struct {
 	Category                  *CategoryDB    `json:"category" db:"category"`
 	TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
 	TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
-	ShippingStatus            sql.NullString `json:"shipping_status,omitempty" db:"shipping_status"`
+	ReserveID                 sql.NullString `json:"reserve_id" db:"reserve_id"`
 	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
@@ -915,7 +915,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		c2.category_name as "category.parent_category_name",
 		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence_status",
-		s.status as "shipping_status"
+		s.reserve_id as "reserve_id"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
 		left outer join users u2 on u2.id=i.buyer_id 
@@ -1059,21 +1059,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if item.TransactionEvidenceID.Int64 > 0 {
-			shipping := Shipping{}
-			err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", item.TransactionEvidenceID)
-			if err == sql.ErrNoRows {
+			if !item.ReserveID.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
 				tx.Rollback()
 				return
 			}
-			if err != nil {
-				log.Print(err)
-				outputErrorMsg(w, http.StatusInternalServerError, "db error")
-				tx.Rollback()
-				return
-			}
 			ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-				ReserveID: shipping.ReserveID,
+				ReserveID: item.ReserveID.String,
 			})
 			if err != nil {
 				log.Print(err)
