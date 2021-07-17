@@ -919,6 +919,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	left outer join categories c on c.id=i.category_id 
 	left outer join categories c2 on c.parent_id=c2.id `
 
+	queryStr = `SELECT i.* from items i`
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetailDBs,
