@@ -869,7 +869,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 	itemDetails := []ItemDetail{}
-	queryStr := `SELECT 
+	queryStr := `
+		SELECT 
 		i.*, 
 		u.id as "seller.id",
 		u.account_name as "seller.account_name",
@@ -878,7 +879,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		u.num_sell_items as "seller.num_sell_items",
 		u.last_bump as "seller.last_bump",
 		u.created_at as "seller.created_at",
-
 		u2.id as "buyer.id",
 		u2.account_name as "buyer.account_name",
 		u2.hashed_password as "buyer.hashed_password",
@@ -886,16 +886,15 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		u2.num_sell_items as "buyer.num_sell_items",
 		u2.last_bump as "buyer.last_bump",
 		u2.created_at as "buyer.created_at",
-		
 		c.id as "category.id",
 		c.parent_id as "category.id",
 		c.category_name as "category.category_name",
-		c.parent_category_name as "category.category_name"
-		
-		FROM "items" i
-		left outer join "users" u on u.id=i.seller_id
-		left outer join "users" u2 on u2.id=i.buyer_id
-		left outer join "categories" c on c.id=i.category_id
+		c2.category_name as "category.parent_category_name"
+		FROM items i
+		left outer join users u on u.id=i.seller_id
+		left outer join users u2 on u2.id=i.buyer_id
+		left outer join categories c on c.id=i.category_id
+		left outer join categories c2 on c.parent_id=c2.id
 	`
 	if itemID > 0 && createdAt > 0 {
 		// paging
