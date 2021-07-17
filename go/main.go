@@ -922,7 +922,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE (`i.seller_id` = ? OR `i.buyer_id` = ?) AND `i.status` IN (?,?,?,?,?) AND (`i.created_at` < ?  OR (`i.created_at` <= ? AND `i.id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
@@ -964,27 +964,27 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	itemDetails := []ItemDetail{}
 
 	for _, item := range itemDetailDBs {
-		
-			seller, err := getUserSimpleByID(tx, item.SellerID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "seller not found")
-				tx.Rollback()
-				return
-			}
-		
+
+		seller, err := getUserSimpleByID(tx, item.SellerID)
+		if err != nil {
+			outputErrorMsg(w, http.StatusNotFound, "seller not found")
+			tx.Rollback()
+			return
+		}
+
 		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
-		
-			category, err := getCategoryByID(tx, item.CategoryID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "category not found")
-				tx.Rollback()
-				return
-			}
-		
+
+		category, err := getCategoryByID(tx, item.CategoryID)
+		if err != nil {
+			outputErrorMsg(w, http.StatusNotFound, "category not found")
+			tx.Rollback()
+			return
+		}
+
 		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
@@ -1016,21 +1016,20 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ParentID:           int(item.Category.ParentID.Int32),
 				ParentCategoryName: item.Category.ParentCategoryName.String,
 			},*/
-			Category: &category,
+			Category:  &category,
 			CreatedAt: item.CreatedAt.Unix(),
 		}
-		
-			if item.BuyerID != 0 {
-				buyer, err := getUserSimpleByID(tx, item.BuyerID)
-				if err != nil {
-					outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-					tx.Rollback()
-					return
-				}
-				itemDetail.BuyerID = item.BuyerID
-				itemDetail.Buyer = &buyer
+
+		if item.BuyerID != 0 {
+			buyer, err := getUserSimpleByID(tx, item.BuyerID)
+			if err != nil {
+				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+				tx.Rollback()
+				return
 			}
-		
+			itemDetail.BuyerID = item.BuyerID
+			itemDetail.Buyer = &buyer
+		}
 
 		if item.BuyerID != 0 {
 			if !item.Buyer.ID.Valid {
@@ -1039,12 +1038,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			/*
-			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &UserSimple{
-				ID:           item.Buyer.ID.Int64,
-				AccountName:  item.Buyer.AccountName.String,
-				NumSellItems: int(item.Buyer.NumSellItems.Int32),
-			}
+				itemDetail.BuyerID = item.BuyerID
+				itemDetail.Buyer = &UserSimple{
+					ID:           item.Buyer.ID.Int64,
+					AccountName:  item.Buyer.AccountName.String,
+					NumSellItems: int(item.Buyer.NumSellItems.Int32),
+				}
 			*/
 		}
 
