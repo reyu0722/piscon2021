@@ -1061,8 +1061,10 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		itemDetails = append(itemDetails, itemDetail)
+
 		if item.TransactionEvidenceID.Int64 > 0 {
-			if !item.ReserveID.Valid {
+			if !item.ReserveID.Valid || item.ReserveID.String == "" {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
 				tx.Rollback()
 				return
@@ -1080,9 +1082,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				itemDetails[i].ShippingStatus = ssr.Status
 				return nil
 			})
-
 		}
-		itemDetails = append(itemDetails, itemDetail)
 	}
 
 	if err := eg.Wait(); err != nil {
