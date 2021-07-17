@@ -1064,15 +1064,14 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		itemDetails = append(itemDetails, itemDetail)
 
 		if item.TransactionEvidenceID.Int64 > 0 {
-			if !item.ReserveID.Valid || item.ReserveID.String == "" {
+			if !item.ReserveID.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
 				tx.Rollback()
 				return
 			}
 
 			eg.Go(func() error {
-				i := i
-				reserveID := item.ReserveID.String
+				i, reserveID := i, item.ReserveID.String
 				ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 					ReserveID: reserveID,
 				})
