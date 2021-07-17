@@ -442,14 +442,13 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 }
 
 func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err error) {
-	err = sqlx.Get(q, &category, "SELECT * FROM `categories` WHERE `id` = ?", categoryID)
-	if category.ParentID != 0 {
-		var name string
-		err = sqlx.Get(q, name, "SELECT name FROM `categories` WHERE `id` = ?", category.ParentID)
-		if err != nil {
-			return category, err
-		}
-		category.ParentCategoryName = name
+	categoryDB := CategoryDB{}
+	err = sqlx.Get(q, &categoryDB, "SELECT *, c2.name as parent_category_name FROM `categories` c left outer JOIN `categories` c2 on c.parent_id=c2.id WHERE `id` = ?", categoryID)
+	category = Category{
+		ID:                 int(categoryDB.ID.Int32),
+		ParentID:           int(categoryDB.ParentID.Int32),
+		CategoryName:       categoryDB.CategoryName.String,
+		ParentCategoryName: categoryDB.ParentCategoryName.String,
 	}
 	return category, err
 }
