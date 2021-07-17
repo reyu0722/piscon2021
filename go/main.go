@@ -964,27 +964,27 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	itemDetails := []ItemDetail{}
 
 	for _, item := range itemDetailDBs {
-		/*
+		
 			seller, err := getUserSimpleByID(tx, item.SellerID)
 			if err != nil {
 				outputErrorMsg(w, http.StatusNotFound, "seller not found")
 				tx.Rollback()
 				return
 			}
-		*/
+		
 		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
-		/*
+		
 			category, err := getCategoryByID(tx, item.CategoryID)
 			if err != nil {
 				outputErrorMsg(w, http.StatusNotFound, "category not found")
 				tx.Rollback()
 				return
 			}
-		*/
+		
 		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
@@ -993,11 +993,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
-			Seller: &UserSimple{
+			/*Seller: &UserSimple{
 				ID:           item.Seller.ID.Int64,
 				AccountName:  item.Seller.AccountName.String,
 				NumSellItems: int(item.Seller.NumSellItems.Int32),
-			},
+			},*/
+			Seller: &seller,
 			// BuyerID
 			// Buyer
 			Status:      item.Status,
@@ -1009,16 +1010,16 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			Category: &Category{
+			/*Category: &Category{
 				ID:                 int(item.Category.ID.Int32),
 				CategoryName:       item.Category.CategoryName.String,
 				ParentID:           int(item.Category.ParentID.Int32),
 				ParentCategoryName: item.Category.ParentCategoryName.String,
-			},
+			},*/
+			Category: &category,
 			CreatedAt: item.CreatedAt.Unix(),
 		}
-		/*
-
+		
 			if item.BuyerID != 0 {
 				buyer, err := getUserSimpleByID(tx, item.BuyerID)
 				if err != nil {
@@ -1029,14 +1030,22 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				itemDetail.BuyerID = item.BuyerID
 				itemDetail.Buyer = &buyer
 			}
-		*/
+		
 
 		if item.BuyerID != 0 {
-			if item.Buyer == nil {
+			if !item.Buyer.ID.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 				tx.Rollback()
 				return
 			}
+			/*
+			itemDetail.BuyerID = item.BuyerID
+			itemDetail.Buyer = &UserSimple{
+				ID:           item.Buyer.ID.Int64,
+				AccountName:  item.Buyer.AccountName.String,
+				NumSellItems: int(item.Buyer.NumSellItems.Int32),
+			}
+			*/
 		}
 
 		transactionEvidence := TransactionEvidence{}
