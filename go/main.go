@@ -117,6 +117,7 @@ type ItemDetailDB struct {
 	TransactionEvidenceStatus string      `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
 	ShippingStatus            string      `json:"shipping_status,omitempty" db:"shipping_status"`
 	CreatedAt                 time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt                 time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 type ItemSimple struct {
