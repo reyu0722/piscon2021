@@ -979,21 +979,21 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		/*
+		
 			category, err := getCategoryByID(tx, item.CategoryID)
 			if err != nil {
 				outputErrorMsg(w, http.StatusNotFound, "category not found")
 				tx.Rollback()
 				return
 			}
-		*/
+		
 
 		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
 		}
-
+		/*
 		category := Category{}
 		if item.Category.ParentID.Int32 == 0 {
 			category = Category{
@@ -1010,6 +1010,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ParentCategoryName: item.Category.ParentCategoryName.String,
 			}
 		}
+		*/
 
 		itemDetail := ItemDetail{
 			ID:       item.ID,
