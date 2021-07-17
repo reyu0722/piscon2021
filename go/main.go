@@ -442,16 +442,19 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 }
 
 func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err error) {
+	type CategoryDB struct {
+		ID                 int    `json:"id" db:"id"`
+		ParentID           int    `json:"parent_id" db:"parent_id"`
+		CategoryName       string `json:"category_name" db:"category_name"`
+		ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
+	}
 	categoryDB := CategoryDB{}
 	err = sqlx.Get(q, &categoryDB, "SELECT c.*, c2.category_name as parent_category_name FROM `categories` c left outer JOIN `categories` c2 on c.parent_id=c2.id WHERE `c.id` = ?", categoryID)
 	category = Category{
-		ID:                 int(categoryDB.ID.Int32),
-		ParentID:           int(categoryDB.ParentID.Int32),
-		CategoryName:       categoryDB.CategoryName.String,
+		ID:                 categoryDB.ID,
+		ParentID:           categoryDB.ParentID,
+		CategoryName:       categoryDB.CategoryName,
 		ParentCategoryName: categoryDB.ParentCategoryName.String,
-	}
-	if !categoryDB.ID.Valid {
-		return category, sql.ErrNoRows
 	}
 	return category, err
 }
