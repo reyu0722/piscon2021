@@ -914,7 +914,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		c.category_name as "category.category_name",
 		c2.category_name as "category.parent_category_name",
 		t.id as "transaction_evidence_id",
-		t.status as "transaction_evidence.status",
+		t.status as "transaction_evidence_status",
 		s.status as "shipping_status"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
