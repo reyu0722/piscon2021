@@ -1009,10 +1009,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			Category:  &Category{
-				ID:          int(item.Category.ID.Int32),
-				CategoryName: item.Category.CategoryName.String,
-				ParentID:    int(item.Category.ParentID.Int32),
+			Category: &Category{
+				ID:                 int(item.Category.ID.Int32),
+				CategoryName:       item.Category.CategoryName.String,
+				ParentID:           int(item.Category.ParentID.Int32),
+				ParentCategoryName: item.Category.ParentCategoryName.String,
 			},
 			CreatedAt: item.CreatedAt.Unix(),
 		}
