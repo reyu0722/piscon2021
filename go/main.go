@@ -917,7 +917,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	left outer join users u on u.id=i.seller_id 
 	left outer join users u2 on u2.id=i.buyer_id 
 	left outer join categories c on c.id=i.category_id 
-	left outer join categories c2 on c.parent_id=c2.id `
+	left outer join categories c2 on c2.id=c.parent_id `
 
 	if itemID > 0 && createdAt > 0 {
 		// paging
@@ -979,21 +979,21 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		
+		/*
 			category, err := getCategoryByID(tx, item.CategoryID)
 			if err != nil {
 				outputErrorMsg(w, http.StatusNotFound, "category not found")
 				tx.Rollback()
 				return
 			}
-		
+		*/
 
 		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
 		}
-		/*
+
 		category := Category{}
 		if item.Category.ParentID.Int32 == 0 {
 			category = Category{
@@ -1010,7 +1010,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ParentCategoryName: item.Category.ParentCategoryName.String,
 			}
 		}
-		*/
 
 		itemDetail := ItemDetail{
 			ID:       item.ID,
