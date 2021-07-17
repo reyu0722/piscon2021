@@ -81,9 +81,9 @@ type User struct {
 }
 
 type UserSimple struct {
-	ID           int64  `json:"id" db:"id"`
-	AccountName  string `json:"account_name" db:"account_name"`
-	NumSellItems int    `json:"num_sell_items" db:"num_sell_items"`
+	ID           int64  `json:"id"`
+	AccountName  string `json:"account_name"`
+	NumSellItems int    `json:"num_sell_items"`
 }
 
 type Item struct {
@@ -100,24 +100,37 @@ type Item struct {
 	UpdatedAt   time.Time `json:"-" db:"updated_at"`
 }
 
+type UserSimpleDB struct {
+	ID           sql.NullInt64  `json:"id" db:"id"`
+	AccountName  sql.NullString `json:"account_name" db:"account_name"`
+	NumSellItems sql.NullInt32  `json:"num_sell_items" db:"num_sell_items"`
+}
+
+type CategoryDB struct {
+	ID                 sql.NullInt32  `json:"id" db:"id"`
+	ParentID           sql.NullInt32  `json:"parent_id" db:"parent_id"`
+	CategoryName       sql.NullString `json:"category_name" db:"category_name"`
+	ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
+}
+
 type ItemDetailDB struct {
-	ID                        int64       `json:"id" db:"id"`
-	SellerID                  int64       `json:"seller_id" db:"seller_id"`
-	Seller                    *UserSimple `json:"seller" db:"seller"`
-	BuyerID                   int64       `json:"buyer_id,omitempty" db:"buyer_id"`
-	Buyer                     *UserSimple `json:"buyer,omitempty" db:"buyer"`
-	Status                    string      `json:"status" db:"status"`
-	Name                      string      `json:"name" db:"name"`
-	Price                     int         `json:"price" db:"price"`
-	Description               string      `json:"description" db:"description"`
-	ImageName                 string      `json:"image_name" db:"image_name"`
-	CategoryID                int         `json:"category_id" db:"category_id"`
-	Category                  *Category   `json:"category" db:"category"`
-	TransactionEvidenceID     int64       `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
-	TransactionEvidenceStatus string      `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
-	ShippingStatus            string      `json:"shipping_status,omitempty" db:"shipping_status"`
-	CreatedAt                 time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt                 time.Time   `json:"updated_at" db:"updated_at"`
+	ID                        int64         `json:"id" db:"id"`
+	SellerID                  int64         `json:"seller_id" db:"seller_id"`
+	Seller                    *UserSimpleDB `json:"seller" db:"seller"`
+	BuyerID                   int64         `json:"buyer_id,omitempty" db:"buyer_id"`
+	Buyer                     *UserSimpleDB `json:"buyer,omitempty" db:"buyer"`
+	Status                    string        `json:"status" db:"status"`
+	Name                      string        `json:"name" db:"name"`
+	Price                     int           `json:"price" db:"price"`
+	Description               string        `json:"description" db:"description"`
+	ImageName                 string        `json:"image_name" db:"image_name"`
+	CategoryID                int           `json:"category_id" db:"category_id"`
+	Category                  *CategoryDB   `json:"category" db:"category"`
+	TransactionEvidenceID     int64         `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+	TransactionEvidenceStatus string        `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+	ShippingStatus            string        `json:"shipping_status,omitempty" db:"shipping_status"`
+	CreatedAt                 time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt                 time.Time     `json:"updated_at" db:"updated_at"`
 }
 
 type ItemSimple struct {
@@ -959,7 +972,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		*/
-		if item.Seller == nil {
+		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
@@ -972,7 +985,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		*/
-		if item.Category == nil {
+		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
@@ -980,7 +993,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
-			Seller:   item.Seller,
+			Seller: &UserSimple{
+				ID:           item.Seller.ID.Int64,
+				AccountName:  item.Seller.AccountName.String,
+				NumSellItems: int(item.Seller.NumSellItems.Int32),
+			},
 			// BuyerID
 			// Buyer
 			Status:      item.Status,
@@ -992,7 +1009,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			Category:  item.Category,
+			Category:  &Category{
+				ID:          int(item.Category.ID.Int32),
+				CategoryName: item.Category.CategoryName.String,
+				ParentID:    int(item.Category.ParentID.Int32),
+			},
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 		/*
