@@ -919,12 +919,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	left outer join categories c on c.id=i.category_id 
 	left outer join categories c2 on c.parent_id=c2.id `
 
-	queryStr = `SELECT i.*
-	FROM items i `
+	queryStr = `SELECT i.* FROM items i `
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE (seller_id = ? OR buyer_id = ?) AND status IN (?,?,?,?,?) AND (created_at < ?  OR (created_at <= ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
@@ -946,7 +945,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND status IN (?,?,?,?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE (seller_id = ? OR buyer_id = ?) AND status IN (?,?,?,?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
