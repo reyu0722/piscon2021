@@ -121,7 +121,7 @@ type ItemDetail struct {
 	Buyer                     *UserSimple `json:"buyer,omitempty" db:"buyer"`
 	Status                    string      `json:"status" db:"status"`
 	Name                      string      `json:"name" db:"name"`
-	Price                     int         `json:"price" db:"name"`
+	Price                     int         `json:"price" db:"price"`
 	Description               string      `json:"description" db:"description"`
 	ImageURL                  string      `json:"image_url" db:"image_url"`
 	CategoryID                int         `json:"category_id" db:"category_id"`
