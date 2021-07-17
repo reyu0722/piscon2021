@@ -55,7 +55,8 @@ dev: build
 	sudo systemctl restart isucari.golang
 
 .phony: pull
-pull: git pull
+pull:
+	git pull
 
 .PHONY: bench-dev
 bench-dev: pull before slow-on dev
