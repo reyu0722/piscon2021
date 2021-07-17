@@ -450,6 +450,9 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err err
 		CategoryName:       categoryDB.CategoryName.String,
 		ParentCategoryName: categoryDB.ParentCategoryName.String,
 	}
+	if !categoryDB.ID.Valid {
+		return category, sql.ErrNoRows
+	}
 	return category, err
 }
 
