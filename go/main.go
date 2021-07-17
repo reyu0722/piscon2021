@@ -903,21 +903,26 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	tx := dbx.MustBegin()
 	itemDetailDBs := []ItemDetailDB{}
 	queryStr := `SELECT i.*, 
-	u.id as "seller.id",
-	u.account_name as "seller.account_name",
-	u.num_sell_items as "seller.num_sell_items",
-	u2.id as "buyer.id",
-	u2.account_name as "buyer.account_name",
-	u2.num_sell_items as "buyer.num_sell_items",
-	c.id as "category.id",
-	c.parent_id as "category.parent_id",
-	c.category_name as "category.category_name",
-	c2.category_name as "category.parent_category_name" 
-	FROM items i 
-	left outer join users u on u.id=i.seller_id 
-	left outer join users u2 on u2.id=i.buyer_id 
-	left outer join categories c on c.id=i.category_id 
-	left outer join categories c2 on c2.id=c.parent_id `
+u.id as "seller.id",
+u.account_name as "seller.account_name",
+u.num_sell_items as "seller.num_sell_items",
+u2.id as "buyer.id",
+u2.account_name as "buyer.account_name",
+u2.num_sell_items as "buyer.num_sell_items",
+c.id as "category.id",
+c.parent_id as "category.parent_id",
+c.category_name as "category.category_name",
+c2.category_name as "category.parent_category_name",
+t.id as "transaction_evidenve_id",
+t.status as "transaction_evidence.status",
+s.status as "shipping_status"
+FROM items i 
+left outer join users u on u.id=i.seller_id 
+left outer join users u2 on u2.id=i.buyer_id 
+left outer join categories c on c.id=i.category_id 
+left outer join categories c2 on c2.id=c.parent_id
+left outer join transaction_evidences t on t.item_id=i.id
+left outer join shippings s on s.transaction_evidence_id=t.id `
 
 	if itemID > 0 && createdAt > 0 {
 		// paging
@@ -1011,8 +1016,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			Description: item.Description,
 			ImageURL:    getImageURL(item.ImageName),
 			CategoryID:  item.CategoryID,
-			// TransactionEvidenceID
-			// TransactionEvidenceStatus
+			TransactionEvidenceID: item.TransactionEvidenceID,
+			TransactionEvidenceStatus: item.TransactionEvidenceStatus,
 			// ShippingStatus
 			Category: &Category{
 				ID:                 int(item.Category.ID.Int32),
@@ -1052,19 +1057,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		transactionEvidence := TransactionEvidence{}
-		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
-		if err != nil && err != sql.ErrNoRows {
-			// It's able to ignore ErrNoRows
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
-			return
-		}
-
-		if transactionEvidence.ID > 0 {
+		if item.TransactionEvidenceID > 0 {
 			shipping := Shipping{}
-			err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
+			err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", item.TransactionEvidenceID)
 			if err == sql.ErrNoRows {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
 				tx.Rollback()
@@ -1086,8 +1081,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			itemDetail.TransactionEvidenceID = transactionEvidence.ID
-			itemDetail.TransactionEvidenceStatus = transactionEvidence.Status
 			itemDetail.ShippingStatus = ssr.Status
 
 		}
