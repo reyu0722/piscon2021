@@ -1062,7 +1062,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				AccountName:  item.Buyer.AccountName.String,
 				NumSellItems: int(item.Buyer.NumSellItems.Int32),
 			}
-
 		}
 
 		transactionEvidence := TransactionEvidence{}
