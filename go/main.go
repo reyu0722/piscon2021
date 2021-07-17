@@ -964,45 +964,45 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	itemDetails := []ItemDetail{}
 
 	for _, item := range itemDetailDBs {
-
+		/*
 		seller, err := getUserSimpleByID(tx, item.SellerID)
 		if err != nil {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
+		*/
 
-		/*
 		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
-		*/
 
+		/*
 		category, err := getCategoryByID(tx, item.CategoryID)
 		if err != nil {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
 		}
+		*/
 
-		/*
 		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
 		}
-		*/
+
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
-			/*Seller: &UserSimple{
+			Seller: &UserSimple{
 				ID:           item.Seller.ID.Int64,
 				AccountName:  item.Seller.AccountName.String,
 				NumSellItems: int(item.Seller.NumSellItems.Int32),
-			},*/
-			Seller: &seller,
+			},
+			// Seller: &seller,
 			// BuyerID
 			// Buyer
 			Status:      item.Status,
@@ -1014,13 +1014,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			/*Category: &Category{
+			Category: &Category{
 				ID:                 int(item.Category.ID.Int32),
 				CategoryName:       item.Category.CategoryName.String,
 				ParentID:           int(item.Category.ParentID.Int32),
 				ParentCategoryName: item.Category.ParentCategoryName.String,
-			},*/
-			Category:  &category,
+			},
+			//Category:  &category,
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
