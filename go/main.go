@@ -901,7 +901,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	itemDetailDBs := []ItemDetailDB{}
+	itemDetailDBs := []Item{}
 	queryStr := `SELECT i.*, 
 	u.id as "seller.id",
 	u.account_name as "seller.account_name",
@@ -919,7 +919,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	left outer join categories c on c.id=i.category_id 
 	left outer join categories c2 on c.parent_id=c2.id `
 
-	queryStr = `SELECT i.* from items i`
+	queryStr = `SELECT i.*
+	FROM items i 
+	left outer join users u on u.id=i.seller_id 
+	left outer join users u2 on u2.id=i.buyer_id 
+	left outer join categories c on c.id=i.category_id 
+	left outer join categories c2 on c.parent_id=c2.id `
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetailDBs,
@@ -973,11 +978,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		/*
 		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
+		*/
 
 		category, err := getCategoryByID(tx, item.CategoryID)
 		if err != nil {
@@ -986,11 +993,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		/*
 		if !item.Category.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
 		}
+		*/
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
@@ -1032,6 +1041,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			itemDetail.Buyer = &buyer
 		}
 
+		/*
 		if item.BuyerID != 0 {
 			if !item.Buyer.ID.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
@@ -1045,8 +1055,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 					AccountName:  item.Buyer.AccountName.String,
 					NumSellItems: int(item.Buyer.NumSellItems.Int32),
 				}
-			*/
+			/
 		}
+		*/
 
 		transactionEvidence := TransactionEvidence{}
 		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
