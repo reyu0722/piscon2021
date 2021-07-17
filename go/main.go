@@ -994,23 +994,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		category := Category{}
-		if item.Category.ParentID.Int32 == 0 {
-			category = Category{
-				ID:                 int(item.Category.ID.Int32),
-				CategoryName:       item.Category.CategoryName.String,
-				ParentID:           int(item.Category.ParentID.Int32),
-				ParentCategoryName: "",
-			}
-		} else {
-			category = Category{
-				ID:                 int(item.Category.ID.Int32),
-				CategoryName:       item.Category.CategoryName.String,
-				ParentID:           int(item.Category.ParentID.Int32),
-				ParentCategoryName: item.Category.ParentCategoryName.String,
-			}
-		}
-
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
@@ -1031,7 +1014,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			Category: &category,
+			Category: &Category{
+				ID:                 int(item.Category.ID.Int32),
+				CategoryName:       item.Category.CategoryName.String,
+				ParentID:           int(item.Category.ParentID.Int32),
+				ParentCategoryName: item.Category.ParentCategoryName.String,
+			},
 			//Category:  &category,
 			CreatedAt: item.CreatedAt.Unix(),
 		}
