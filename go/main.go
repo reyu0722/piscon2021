@@ -944,7 +944,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE (`i.seller_id` = ? OR `i.buyer_id` = ?) AND `status` IN (?,?,?,?,?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND status IN (?,?,?,?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
