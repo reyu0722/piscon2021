@@ -910,7 +910,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	u2.account_name as "buyer.account_name",
 	u2.num_sell_items as "buyer.num_sell_items",
 	c.id as "category.id",
-	c.parent_id as "category.id",
+	c.parent_id as "category.parent_id",
 	c.category_name as "category.category_name",
 	c2.category_name as "category.parent_category_name" 
 	FROM items i 
