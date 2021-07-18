@@ -1398,7 +1398,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		ID          int64         `json:"id" db:"id"`
 		SellerID    int64         `json:"seller_id" db:"seller_id"`
 		Seller      *UserSimpleDB `json:"seller" db:"seller"`
-		Buyer      *UserSimpleDB `json:"buyer" db:"buyer"`
+		Buyer       *UserSimpleDB `json:"buyer" db:"buyer"`
 		Status      string        `json:"status" db:"status"`
 		Name        string        `json:"name" db:"name"`
 		Price       int           `json:"price" db:"price"`
@@ -1465,9 +1465,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buyer := User{
-		ID: targetItem.Buyer.ID.Int64,
-		AccountName:  targetItem.Buyer.AccountName.String,
-		Address: targetItem.Buyer.Address.String,
+		ID:          targetItem.Buyer.ID.Int64,
+		AccountName: targetItem.Buyer.AccountName.String,
+		Address:     targetItem.Buyer.Address.String,
 	}
 
 	/*
