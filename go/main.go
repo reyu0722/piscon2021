@@ -464,7 +464,9 @@ func getCategories() error {
 		categoriesCached[category.ID] = &category
 	}
 	for _, c := range categoriesCached {
-		c.ParentCategoryName = categoriesCached[c.ParentID].CategoryName
+		if parent, ok := categoriesCached[c.ParentID]; ok {
+			c.ParentCategoryName = parent.CategoryName
+		}
 	}
 	return nil
 }
