@@ -58,7 +58,8 @@ const (
 	ItemsPerPage        = 48
 	TransactionsPerPage = 10
 
-	BcryptCost = 10
+	OldBcryptCost = 10
+	NewBcryptCost = 4
 )
 
 var (
@@ -2340,6 +2341,20 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ress)
 }
 
+var newPasswords map[int64][]byte
+
+func checkUserPassword() {
+	userIDs := []int64{}
+	err := dbx.Get(&userIDs, `Select ID from users`)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	for _, userID := range userIDs {
+		newPasswords[userID] = nil
+	}
+}
+
 func postLogin(w http.ResponseWriter, r *http.Request) {
 	rl := reqLogin{}
 	err := json.NewDecoder(r.Body).Decode(&rl)
@@ -2353,7 +2368,6 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 
 	if accountName == "" || password == "" {
 		outputErrorMsg(w, http.StatusBadRequest, "all parameters are required")
-
 		return
 	}
 
@@ -2370,16 +2384,43 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(password))
-	if err == bcrypt.ErrMismatchedHashAndPassword {
-		outputErrorMsg(w, http.StatusUnauthorized, "アカウント名かパスワードが間違えています")
-		return
-	}
-	if err != nil {
-		log.Print(err)
+	if newPassword, ok := newPasswords[u.ID]; !ok {
+		err = bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(password))
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			outputErrorMsg(w, http.StatusUnauthorized, "アカウント名かパスワードが間違えています")
+			return
+		}
+		if err != nil {
+			log.Print(err)
 
-		outputErrorMsg(w, http.StatusInternalServerError, "crypt error")
-		return
+			outputErrorMsg(w, http.StatusInternalServerError, "crypt error")
+			return
+		}
+	} else if newPassword == nil {
+		err = bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(password))
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			outputErrorMsg(w, http.StatusUnauthorized, "アカウント名かパスワードが間違えています")
+			return
+		}
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "crypt error")
+			return
+		}
+		newPasswords[u.ID], err = bcrypt.GenerateFromPassword([]byte(password), NewBcryptCost)
+	} else {
+		err = bcrypt.CompareHashAndPassword(newPasswords[u.ID], []byte(password))
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			outputErrorMsg(w, http.StatusUnauthorized, "アカウント名かパスワードが間違えています")
+			return
+		}
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "crypt error")
+			return
+		}
 	}
 
 	session := getSession(r)
@@ -2415,7 +2456,7 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), NewBcryptCost)
 	if err != nil {
 		log.Print(err)
 
