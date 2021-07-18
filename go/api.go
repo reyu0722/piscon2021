@@ -58,8 +58,6 @@ type APIShipmentStatusReq struct {
 func APIPaymentToken(paymentURL string, param *APIPaymentServiceTokenReq) (*APIPaymentServiceTokenRes, error) {
 	b, _ := json.Marshal(param)
 
-	paymentURL = strings.Replace(paymentURL, "localhost", "10.0.0.101", 1)
-
 	req, err := http.NewRequest(http.MethodPost, paymentURL+"/token", bytes.NewBuffer(b))
 	if err != nil {
 		return nil, err
@@ -93,8 +91,6 @@ func APIPaymentToken(paymentURL string, param *APIPaymentServiceTokenReq) (*APIP
 
 func APIShipmentCreate(shipmentURL string, param *APIShipmentCreateReq) (*APIShipmentCreateRes, error) {
 	b, _ := json.Marshal(param)
-
-	shipmentURL = strings.Replace(shipmentURL, "localhost", "10.0.0.101", 1)
 
 	req, err := http.NewRequest(http.MethodPost, shipmentURL+"/create", bytes.NewBuffer(b))
 	if err != nil {
@@ -161,8 +157,6 @@ func APIShipmentRequest(shipmentURL string, param *APIShipmentRequestReq) ([]byt
 
 func APIShipmentStatus(shipmentURL string, param *APIShipmentStatusReq) (*APIShipmentStatusRes, error) {
 	b, _ := json.Marshal(param)
-
-	shipmentURL = strings.Replace(shipmentURL, "localhost", "10.0.0.101", 1)
 
 	req, err := http.NewRequest(http.MethodGet, shipmentURL+"/status", bytes.NewBuffer(b))
 	if err != nil {
