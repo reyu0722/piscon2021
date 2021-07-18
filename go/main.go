@@ -2356,6 +2356,10 @@ func checkUserPassword() {
 }
 
 func postLogin(w http.ResponseWriter, r *http.Request) {
+	if newPasswords == nil {
+		checkUserPassword()
+	}
+
 	rl := reqLogin{}
 	err := json.NewDecoder(r.Body).Decode(&rl)
 	if err != nil {
