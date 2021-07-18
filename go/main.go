@@ -126,7 +126,6 @@ type ItemDetailDB struct {
 	Description               string         `json:"description" db:"description"`
 	ImageName                 string         `json:"image_name" db:"image_name"`
 	CategoryID                int            `json:"category_id" db:"category_id"`
-	Category                  *CategoryDB    `json:"category" db:"category"`
 	TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
 	TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
 	ReserveID                 sql.NullString `json:"reserve_id" db:"reserve_id"`
@@ -956,18 +955,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		u2.id as "buyer.id",
 		u2.account_name as "buyer.account_name",
 		u2.num_sell_items as "buyer.num_sell_items",
-		c.id as "category.id",
-		c.parent_id as "category.parent_id",
-		c.category_name as "category.category_name",
-		c2.category_name as "category.parent_category_name",
 		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence_status",
 		s.reserve_id as "reserve_id"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
 		left outer join users u2 on u2.id=i.buyer_id 
-		left outer join categories c on c.id=i.category_id 
-		left outer join categories c2 on c2.id=c.parent_id
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
@@ -1034,16 +1027,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		/*
-			category, err := getCategoryByID(tx, item.CategoryID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "category not found")
-				tx.Rollback()
-				return
-			}
-		*/
-
-		if !item.Category.ID.Valid {
+		category, err := getCategoryByID(tx, item.CategoryID)
+		if err != nil {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			tx.Rollback()
 			return
@@ -1069,12 +1054,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			TransactionEvidenceID:     item.TransactionEvidenceID.Int64,
 			TransactionEvidenceStatus: item.TransactionEvidenceStatus.String,
 			// ShippingStatus
-			Category: &Category{
-				ID:                 int(item.Category.ID.Int32),
-				CategoryName:       item.Category.CategoryName.String,
-				ParentID:           int(item.Category.ParentID.Int32),
-				ParentCategoryName: item.Category.ParentCategoryName.String,
-			},
+			Category: &category,
 			//Category:  &category,
 			CreatedAt: item.CreatedAt.Unix(),
 		}
