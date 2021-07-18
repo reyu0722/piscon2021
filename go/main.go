@@ -4,7 +4,6 @@ import (
 	crand "crypto/rand"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -572,7 +571,7 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 
 	res := resInitialize{
 		// キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
-		Campaign: 0,
+		Campaign: 1,
 		// 実装言語を返す
 		Language: "Go",
 	}
@@ -1497,7 +1496,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eg := errgroup.Group{}
-
 	var scr *APIShipmentCreateRes
 
 	eg.Go(func() error {
@@ -1507,25 +1505,20 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			FromAddress: seller.Address,
 			FromName:    seller.AccountName,
 		})
-		if err != nil {
-			return errors.New("failed to request to shipment service")
-		}
-		return nil
+		return err
 	})
 
+	eg2 := errgroup.Group{}
 	var pstr *APIPaymentServiceTokenRes
 
-	eg.Go(func() error {
+	eg2.Go(func() error {
 		pstr, err = APIPaymentToken(getPaymentServiceURL(), &APIPaymentServiceTokenReq{
 			ShopID: PaymentServiceIsucariShopID,
 			Token:  rb.Token,
 			APIKey: PaymentServiceIsucariAPIKey,
 			Price:  targetItem.Price,
 		})
-		if err != nil {
-			return errors.New("payment service is failer")
-		}
-		return nil
+		return err
 	})
 
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -1572,26 +1565,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	if err = eg.Wait(); err != nil {
 		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, err.Error())
-		tx.Rollback()
-
-		return
-	}
-
-	if pstr.Status == "invalid" {
-		outputErrorMsg(w, http.StatusBadRequest, "カード情報に誤りがあります")
-		tx.Rollback()
-		return
-	}
-
-	if pstr.Status == "fail" {
-		outputErrorMsg(w, http.StatusBadRequest, "カードの残高が足りません")
-		tx.Rollback()
-		return
-	}
-
-	if pstr.Status != "ok" {
-		outputErrorMsg(w, http.StatusBadRequest, "想定外のエラー")
+		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
 		tx.Rollback()
 		return
 	}
@@ -1613,6 +1587,32 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+
+	if err = eg2.Wait(); err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "payment service is failer")
+		tx.Rollback()
+
+		return
+	}
+
+	if pstr.Status == "invalid" {
+		outputErrorMsg(w, http.StatusBadRequest, "カード情報に誤りがあります")
+		tx.Rollback()
+		return
+	}
+
+	if pstr.Status == "fail" {
+		outputErrorMsg(w, http.StatusBadRequest, "カードの残高が足りません")
+		tx.Rollback()
+		return
+	}
+
+	if pstr.Status != "ok" {
+		outputErrorMsg(w, http.StatusBadRequest, "想定外のエラー")
 		tx.Rollback()
 		return
 	}
