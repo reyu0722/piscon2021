@@ -483,7 +483,12 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 		}
 		return category, err
 	*/
-
+	if categoriesCached == nil {
+		err := getCategories()
+		if err != nil {
+			log.Fatalf("failed to get categories: %s.", err.Error())
+		}
+	}
 	category, ok := categoriesCached[categoryID]
 	if !ok {
 		return Category{}, sql.ErrNoRows
