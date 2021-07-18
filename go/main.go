@@ -2345,7 +2345,7 @@ var newPasswords map[int64][]byte
 
 func checkUserPassword() {
 	userIDs := []int64{}
-	err := dbx.Get(&userIDs, `Select id from users`)
+	err := dbx.Select(&userIDs, `Select id from users`)
 	if err != nil {
 		log.Print(err)
 		return
