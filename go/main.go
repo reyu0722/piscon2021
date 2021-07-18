@@ -446,7 +446,7 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 	return userSimple, err
 }
 
-var categoriesCached map[int]*Category
+var categoriesCached map[int]Category
 
 func getCategories () error {
 	rows, err := dbx.Queryx("SELECT * FROM `categories`")
@@ -460,7 +460,7 @@ func getCategories () error {
 		if err != nil {
 			return err
 		}
-		categoriesCached[category.ID] = &category
+		categoriesCached[category.ID] = category
 	}
 	return nil
 }
@@ -489,7 +489,7 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	if !ok {
 		return Category{}, sql.ErrNoRows
 	} else {
-		return *category, nil
+		return category, nil
 	}
 }
 
