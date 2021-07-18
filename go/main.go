@@ -27,8 +27,8 @@ import (
 const (
 	sessionName = "session_isucari"
 
-	DefaultPaymentServiceURL  = "http://localhost:5555"
-	DefaultShipmentServiceURL = "http://localhost:7000"
+	DefaultPaymentServiceURL  = "http://10.0.0.101:5555"
+	DefaultShipmentServiceURL = "http://10.0.0.101:7000"
 
 	ItemMinPrice    = 100
 	ItemMaxPrice    = 1000000
@@ -1132,7 +1132,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(rts)
-
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
