@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -1141,7 +1140,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 					ReserveID: reserveID,
 				})
 				if err != nil {
-					time.Sleep(time.Millisecond * time.Duration(rand.Int()%200))
 					ssr, err = APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 						ReserveID: reserveID,
 					})
