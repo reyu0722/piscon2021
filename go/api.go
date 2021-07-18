@@ -15,7 +15,6 @@ const (
 	userAgent = "isucon9-qualify-webapp"
 )
 
-
 type APIPaymentServiceTokenReq struct {
 	ShopID string `json:"shop_id"`
 	Token  string `json:"token"`
@@ -53,8 +52,8 @@ type APIShipmentStatusReq struct {
 }
 
 func APIPaymentToken(paymentURL string, param *APIPaymentServiceTokenReq) (*APIPaymentServiceTokenRes, error) {
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1000
-	
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 10
+
 	b, _ := json.Marshal(param)
 
 	paymentURL = strings.Replace(paymentURL, "localhost", "10.0.0.101", 1)
@@ -91,8 +90,8 @@ func APIPaymentToken(paymentURL string, param *APIPaymentServiceTokenReq) (*APIP
 }
 
 func APIShipmentCreate(shipmentURL string, param *APIShipmentCreateReq) (*APIShipmentCreateRes, error) {
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1000
-	
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 10
+
 	b, _ := json.Marshal(param)
 
 	shipmentURL = strings.Replace(shipmentURL, "localhost", "10.0.0.101", 1)
@@ -130,8 +129,8 @@ func APIShipmentCreate(shipmentURL string, param *APIShipmentCreateReq) (*APIShi
 }
 
 func APIShipmentRequest(shipmentURL string, param *APIShipmentRequestReq) ([]byte, error) {
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1000
-	
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 10
+
 	b, _ := json.Marshal(param)
 
 	shipmentURL = strings.Replace(shipmentURL, "localhost", "10.0.0.101", 1)
@@ -163,8 +162,8 @@ func APIShipmentRequest(shipmentURL string, param *APIShipmentRequestReq) ([]byt
 }
 
 func APIShipmentStatus(shipmentURL string, param *APIShipmentStatusReq) (*APIShipmentStatusRes, error) {
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1000
-	
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 10
+
 	b, _ := json.Marshal(param)
 
 	shipmentURL = strings.Replace(shipmentURL, "localhost", "10.0.0.101", 1)
