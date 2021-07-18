@@ -448,7 +448,8 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 
 var categoriesCached map[int]Category
 
-func getCategories () error {
+func getCategories() error {
+	categoriesCached = map[int]Category{}
 	rows, err := dbx.Queryx("SELECT * FROM `categories`")
 	if err != nil {
 		return err
@@ -465,24 +466,23 @@ func getCategories () error {
 	return nil
 }
 
-
 func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	/*
-	type CategoryDB struct {
-		ID                 int            `json:"id" db:"id"`
-		ParentID           int            `json:"parent_id" db:"parent_id"`
-		CategoryName       string         `json:"category_name" db:"category_name"`
-		ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
-	}
-	categoryDB := CategoryDB{}
-	err := sqlx.Get(q, &categoryDB, "SELECT c.*, c2.category_name as parent_category_name FROM categories c left outer JOIN categories c2 on c.parent_id=c2.id WHERE c.id = ?", categoryID)
-	category := Category{
-		ID:                 categoryDB.ID,
-		ParentID:           categoryDB.ParentID,
-		CategoryName:       categoryDB.CategoryName,
-		ParentCategoryName: categoryDB.ParentCategoryName.String,
-	}
-	return category, err
+		type CategoryDB struct {
+			ID                 int            `json:"id" db:"id"`
+			ParentID           int            `json:"parent_id" db:"parent_id"`
+			CategoryName       string         `json:"category_name" db:"category_name"`
+			ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
+		}
+		categoryDB := CategoryDB{}
+		err := sqlx.Get(q, &categoryDB, "SELECT c.*, c2.category_name as parent_category_name FROM categories c left outer JOIN categories c2 on c.parent_id=c2.id WHERE c.id = ?", categoryID)
+		category := Category{
+			ID:                 categoryDB.ID,
+			ParentID:           categoryDB.ParentID,
+			CategoryName:       categoryDB.CategoryName,
+			ParentCategoryName: categoryDB.ParentCategoryName.String,
+		}
+		return category, err
 	*/
 
 	category, ok := categoriesCached[categoryID]
@@ -1432,7 +1432,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		ID          int64         `json:"id" db:"id"`
 		SellerID    int64         `json:"seller_id" db:"seller_id"`
 		Seller      *UserSimpleDB `json:"seller" db:"seller"`
-		Buyer      *UserSimpleDB `json:"buyer" db:"buyer"`
+		Buyer       *UserSimpleDB `json:"buyer" db:"buyer"`
 		Status      string        `json:"status" db:"status"`
 		Name        string        `json:"name" db:"name"`
 		Price       int           `json:"price" db:"price"`
@@ -1499,9 +1499,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buyer := User{
-		ID: targetItem.Buyer.ID.Int64,
-		AccountName:  targetItem.Buyer.AccountName.String,
-		Address: targetItem.Buyer.Address.String,
+		ID:          targetItem.Buyer.ID.Int64,
+		AccountName: targetItem.Buyer.AccountName.String,
+		Address:     targetItem.Buyer.Address.String,
 	}
 
 	/*
