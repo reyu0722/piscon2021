@@ -538,7 +538,7 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command("../sql/init.sh")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stderr
-	cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "exec init.sh error")
 		return
