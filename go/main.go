@@ -1241,7 +1241,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if !item.Buyer.ID.Valid {
+	if item.Buyer.ID.Valid {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = &UserSimple{
 			ID:           item.BuyerID,
