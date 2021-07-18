@@ -1423,7 +1423,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Price       int           `json:"price" db:"price"`
 		Description string        `json:"description" db:"description"`
 		CategoryID  int           `json:"category_id" db:"category_id"`
-		Category    *CategoryDB   `json:"category" db:"category"`
 	}
 
 	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id, 
@@ -1433,15 +1432,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		u2.id as "buyer.id",
 		u2.account_name as "buyer.account_name",
 		u2.address as "buyer.address",
-		c.id as "category.id",
-		c.parent_id as "category.parent_id",
-		c.category_name as "category.category_name",
-		c2.category_name as "category.parent_category_name"
 		FROM (SELECT * from items where id = ? FOR UPDATE) i 
 		left outer join users u on u.id=i.seller_id
 		left outer join users u2 on u2.id=? 
-		left outer join categories c on c.id=i.category_id 
-		left outer join categories c2 on c2.id=c.parent_id 
 	`
 
 	targetItem := ItemDetail{}
@@ -1489,28 +1482,13 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Address:     targetItem.Buyer.Address.String,
 	}
 
-	/*
-		if err != nil {
-			log.Print(err)
-
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
-			return
-		}
-	*/
-
-	if !targetItem.Category.ID.Valid {
+	category, err:= getCategoryByID(dbx, targetItem.CategoryID)
+	if err != nil {
 		log.Print(err)
 
 		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
 		tx.Rollback()
 		return
-	}
-	category := Category{
-		ID:                 int(targetItem.Category.ID.Int32),
-		ParentID:           int(targetItem.Category.ParentID.Int32),
-		CategoryName:       targetItem.Category.CategoryName.String,
-		ParentCategoryName: targetItem.Category.ParentCategoryName.String,
 	}
 
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
