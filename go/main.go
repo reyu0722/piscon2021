@@ -827,7 +827,6 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	query := r.URL.Query()
 	itemIDStr := query.Get("item_id")
 	var itemID int64
@@ -854,7 +853,6 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		return
 	}
-
 
 	items := []Item{}
 	if itemID > 0 && createdAt > 0 {
@@ -960,7 +958,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tx := dbx.MustBegin()
+	tx, err := dbx.Beginx()
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
 	itemDetailDBs := []ItemDetailDB{}
 	queryStr := `SELECT i.*, 
 		u.id as "seller.id",
@@ -1314,7 +1317,12 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx := dbx.MustBegin()
+	tx, err := dbx.Beginx()
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
 	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
 	if err != nil {
 		log.Print(err)
@@ -1836,7 +1844,12 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx := dbx.MustBegin()
+	tx, err := dbx.Beginx()
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
 
 	item := Item{}
 	err = tx.Get(&item, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
@@ -1982,7 +1995,12 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx := dbx.MustBegin()
+	tx, err := dbx.Beginx()
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
 	item := Item{}
 	err = tx.Get(&item, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
 	if err == sql.ErrNoRows {
@@ -2176,7 +2194,12 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx := dbx.MustBegin()
+	tx, err := dbx.Beginx()
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
 
 	seller := User{}
 	err = tx.Get(&seller, "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", user.ID)
@@ -2264,7 +2287,12 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx := dbx.MustBegin()
+	tx, err := dbx.Beginx()
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
 
 	targetItem := Item{}
 	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
