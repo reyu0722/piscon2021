@@ -354,10 +354,6 @@ func main() {
 
 	mux := goji.NewMux()
 
-	err = getCategories()
-	if err != nil {
-		log.Fatalf("failed to get categories: %s.", err.Error())
-	}
 
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
@@ -574,6 +570,11 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		Campaign: 0,
 		// 実装言語を返す
 		Language: "Go",
+	}
+
+	err = getCategories()
+	if err != nil {
+		log.Fatalf("failed to get categories: %s.", err.Error())
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
