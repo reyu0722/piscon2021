@@ -2353,6 +2353,7 @@ func checkUserPassword() {
 	for _, userID := range userIDs {
 		newPasswords[userID] = nil
 	}
+	log.Printf("test")
 }
 
 func postLogin(w http.ResponseWriter, r *http.Request) {
