@@ -379,6 +379,7 @@ func main() {
 	mux.HandleFunc(pat.Post("/login"), postLogin)
 	mux.HandleFunc(pat.Post("/register"), postRegister)
 	mux.HandleFunc(pat.Get("/reports.json"), getReports)
+	mux.HandleFunc(pat.Get("/userpass"), getUserPass)
 	// Frontend
 	mux.HandleFunc(pat.Get("/"), getIndex)
 	mux.HandleFunc(pat.Get("/login"), getIndex)
@@ -2355,6 +2356,10 @@ func checkUserPassword() {
 		newPasswords[userID] = nil
 	}
 	log.Printf("test")
+}
+
+func getUserPass(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(newPasswords)
 }
 
 func postLogin(w http.ResponseWriter, r *http.Request) {
