@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math/rand"
 	crand "crypto/rand"
 	"database/sql"
 	"encoding/json"
@@ -9,6 +8,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -986,8 +986,16 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) UNION "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?))  ORDER BY created_at DESC, id DESC LIMIT ?",
 			userID,
+			ItemStatusOnSale,
+			ItemStatusTrading,
+			ItemStatusSoldOut,
+			ItemStatusCancel,
+			ItemStatusStop,
+			time.Unix(createdAt, 0),
+			time.Unix(createdAt, 0),
+			itemID,
 			userID,
 			ItemStatusOnSale,
 			ItemStatusTrading,
@@ -1008,8 +1016,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND i.status IN (?,?,?,?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) UNION "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?)  ORDER BY created_at DESC, id DESC LIMIT ?",
 			userID,
+			ItemStatusOnSale,
+			ItemStatusTrading,
+			ItemStatusSoldOut,
+			ItemStatusCancel,
+			ItemStatusStop,
 			userID,
 			ItemStatusOnSale,
 			ItemStatusTrading,
@@ -1125,7 +1138,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 					ReserveID: reserveID,
 				})
 				if err != nil {
-					time.Sleep(time.Millisecond * time.Duration(rand.Int() % 200))
+					time.Sleep(time.Millisecond * time.Duration(rand.Int()%200))
 					ssr, err = APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 						ReserveID: reserveID,
 					})
