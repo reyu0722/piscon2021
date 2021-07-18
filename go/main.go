@@ -437,7 +437,7 @@ func getUser(r *http.Request) (user User, errCode int, errMsg string) {
 
 func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err error) {
 	user := User{}
-	err = sqlx.Get(q, &user, "SELECT * FROM `users` WHERE `id` = ?", userID)
+	err = sqlx.Get(q, &user, "SELECT id, account_name, num_sell_items FROM `users` WHERE `id` = ?", userID)
 	if err != nil {
 		return userSimple, err
 	}
@@ -827,11 +827,6 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userSimple, err := getUserSimpleByID(dbx, userID)
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "user not found")
-		return
-	}
 
 	query := r.URL.Query()
 	itemIDStr := query.Get("item_id")
@@ -853,6 +848,13 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	userSimple, err := getUserSimpleByID(dbx, userID)
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "user not found")
+		return
+	}
+
 
 	items := []Item{}
 	if itemID > 0 && createdAt > 0 {
