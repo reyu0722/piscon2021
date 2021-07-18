@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.opencensus.io/plugin/ochttp"
 )
@@ -178,7 +179,16 @@ func APIShipmentStatus(shipmentURL string, param *APIShipmentStatusReq) (*APIShi
 		if err != nil {
 			return nil, fmt.Errorf("failed to read res.Body and the status code of the response from shipment service was not 200: %v", err)
 		}
-		return nil, fmt.Errorf("status code: %d; body: %s", res.StatusCode, b)
+		time.Sleep(100 * time.Millisecond)
+		res2, err := apiClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer res2.Body.Close()
+		if res2.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("status code: %d; body: %s", res.StatusCode, b)
+		}
+		res = res2
 	}
 
 	ssr := &APIShipmentStatusRes{}
