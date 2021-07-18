@@ -1431,7 +1431,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		u.address as "seller.address",
 		u2.id as "buyer.id",
 		u2.account_name as "buyer.account_name",
-		u2.address as "buyer.address",
+		u2.address as "buyer.address"
 		FROM (SELECT * from items where id = ? FOR UPDATE) i 
 		left outer join users u on u.id=i.seller_id
 		left outer join users u2 on u2.id=? 
