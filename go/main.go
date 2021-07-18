@@ -354,7 +354,6 @@ func main() {
 
 	mux := goji.NewMux()
 
-
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
 	mux.HandleFunc(pat.Get("/new_items.json"), getNewItems)
@@ -1012,7 +1011,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 	eg := errgroup.Group{}
 
+	hasNext := false
+
 	for i, item := range itemDetailDBs {
+		if i >= 10 {
+			hasNext = true
+			break
+		}
 		/*
 			seller, err := getUserSimpleByID(tx, item.SellerID)
 			if err != nil {
@@ -1119,12 +1124,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-
-	hasNext := false
-	if len(itemDetails) > TransactionsPerPage {
-		hasNext = true
-		itemDetails = itemDetails[0:TransactionsPerPage]
-	}
 
 	rts := resTransactions{
 		Items:   itemDetails,
@@ -1483,7 +1482,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Address:     targetItem.Buyer.Address.String,
 	}
 
-	category, err:= getCategoryByID(dbx, targetItem.CategoryID)
+	category, err := getCategoryByID(dbx, targetItem.CategoryID)
 	if err != nil {
 		log.Print(err)
 
