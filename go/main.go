@@ -878,11 +878,12 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTransactions(w http.ResponseWriter, r *http.Request) {
-
-	user, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
+
 	}
 
 	query := r.URL.Query()
@@ -936,8 +937,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		// paging
 		err := tx.Select(&itemDetailDBs,
 			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?",
-			user.ID,
-			user.ID,
+			userID,
+			userID,
 			ItemStatusOnSale,
 			ItemStatusTrading,
 			ItemStatusSoldOut,
@@ -958,8 +959,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		// 1st page
 		err := tx.Select(&itemDetailDBs,
 			queryStr+"WHERE (i.seller_id = ? OR i.buyer_id = ?) AND i.status IN (?,?,?,?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
-			user.ID,
-			user.ID,
+			userID,
+			userID,
 			ItemStatusOnSale,
 			ItemStatusTrading,
 			ItemStatusSoldOut,
@@ -1379,9 +1380,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buyer, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	buyerID, ok := session.Values["user_id"]
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
 
@@ -1396,6 +1398,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		ID          int64         `json:"id" db:"id"`
 		SellerID    int64         `json:"seller_id" db:"seller_id"`
 		Seller      *UserSimpleDB `json:"seller" db:"seller"`
+		Buyer      *UserSimpleDB `json:"buyer" db:"buyer"`
 		Status      string        `json:"status" db:"status"`
 		Name        string        `json:"name" db:"name"`
 		Price       int           `json:"price" db:"price"`
@@ -1408,18 +1411,22 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		u.id as "seller.id",
 		u.account_name as "seller.account_name",
 		u.address as "seller.address",
+		u2.id as "buyer.id",
+		u2.account_name as "buyer.account_name",
+		u2.address as "buyer.address",
 		c.id as "category.id",
 		c.parent_id as "category.parent_id",
 		c.category_name as "category.category_name",
 		c2.category_name as "category.parent_category_name"
 		FROM (SELECT * from items where id = ? FOR UPDATE) i 
 		left outer join users u on u.id=i.seller_id
+		left outer join users u2 on u2.id=? 
 		left outer join categories c on c.id=i.category_id 
 		left outer join categories c2 on c2.id=c.parent_id 
 	`
 
 	targetItem := ItemDetail{}
-	err = tx.Get(&targetItem, queryStr, rb.ItemID)
+	err = tx.Get(&targetItem, queryStr, rb.ItemID, buyerID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1439,7 +1446,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if targetItem.SellerID == buyer.ID {
+	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		tx.Rollback()
 		return
@@ -1455,6 +1462,12 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		ID:          targetItem.Seller.ID.Int64,
 		AccountName: targetItem.Seller.AccountName.String,
 		Address:     targetItem.Seller.Address.String,
+	}
+
+	buyer := User{
+		ID: targetItem.Buyer.ID.Int64,
+		AccountName:  targetItem.Buyer.AccountName.String,
+		Address: targetItem.Buyer.Address.String,
 	}
 
 	/*
@@ -1483,7 +1496,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		targetItem.SellerID,
-		buyer.ID,
+		buyerID,
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
 		targetItem.Name,
@@ -1510,7 +1523,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyer.ID,
+		buyerID,
 		ItemStatusTrading,
 		time.Now(),
 		targetItem.ID,
