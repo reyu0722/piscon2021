@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	crand "crypto/rand"
 	"database/sql"
 	"encoding/json"
@@ -1124,7 +1125,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 					ReserveID: reserveID,
 				})
 				if err != nil {
-					time.Sleep(time.Millisecond * 100)
+					time.Sleep(time.Millisecond * time.Duration(rand.Int() % 200))
 					ssr, err = APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 						ReserveID: reserveID,
 					})
