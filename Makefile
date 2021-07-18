@@ -121,7 +121,7 @@ setup:
 	go get -u github.com/matsuu/kataribe
 	kataribe -generate
 	sudo apt install -y percona-toolkit dstat
-	curl -Lo slackcat https://github.com/bcicen/slackcat/releases/download/1.7.2/slackcat-1.7.2-$(uname -s)-amd64
+	curl -Lo slackcat https://github.com/bcicen/slackcat/releases/download/1.7.2/slackcat-1.7.2-$$(uname -s)-amd64
 	sudo mv slackcat /usr/local/bin/
 	sudo chmod +x /usr/local/bin/slackcat
 	slackcat --configure
