@@ -361,6 +361,8 @@ func main() {
 
 	mux := goji.NewMux()
 
+	checkUserPassword()
+
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
 	mux.HandleFunc(pat.Get("/new_items.json"), getNewItems)
@@ -2428,17 +2430,12 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 var newPasswords map[int64][]byte
 
 func checkUserPassword() {
-	userIDs := []int64{}
-	newPasswords = map[int64][]byte{}
-	err := dbx.Select(&userIDs, `Select id from users`)
+	raw, err := ioutil.ReadFile("./userpass.json")
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	for _, userID := range userIDs {
-		newPasswords[userID] = nil
-	}
-	log.Printf("test")
+	json.Unmarshal(raw, &newPasswords)
 }
 
 func getUserPass(w http.ResponseWriter, r *http.Request) {
@@ -2446,10 +2443,6 @@ func getUserPass(w http.ResponseWriter, r *http.Request) {
 }
 
 func postLogin(w http.ResponseWriter, r *http.Request) {
-	if newPasswords == nil {
-		checkUserPassword()
-	}
-
 	rl := reqLogin{}
 	err := json.NewDecoder(r.Body).Decode(&rl)
 	if err != nil {
