@@ -1496,6 +1496,38 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	eg := errgroup.Group{}
+
+	var scr *APIShipmentCreateRes
+
+	eg.Go(func() error {
+		scr, err = APIShipmentCreate(getShipmentServiceURL(), &APIShipmentCreateReq{
+			ToAddress:   buyer.Address,
+			ToName:      buyer.AccountName,
+			FromAddress: seller.Address,
+			FromName:    seller.AccountName,
+		})
+		if err != nil {
+			return errors.New("failed to request to shipment service")
+		}
+		return nil
+	})
+
+	var pstr *APIPaymentServiceTokenRes
+
+	eg.Go(func() error {
+		pstr, err = APIPaymentToken(getPaymentServiceURL(), &APIPaymentServiceTokenReq{
+			ShopID: PaymentServiceIsucariShopID,
+			Token:  rb.Token,
+			APIKey: PaymentServiceIsucariAPIKey,
+			Price:  targetItem.Price,
+		})
+		if err != nil {
+			return errors.New("payment service is failer")
+		}
+		return nil
+	})
+
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		targetItem.SellerID,
 		buyerID,
@@ -1537,37 +1569,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	eg := errgroup.Group{}
-
-	var scr *APIShipmentCreateRes
-
-	eg.Go(func() error {
-		scr, err = APIShipmentCreate(getShipmentServiceURL(), &APIShipmentCreateReq{
-			ToAddress:   buyer.Address,
-			ToName:      buyer.AccountName,
-			FromAddress: seller.Address,
-			FromName:    seller.AccountName,
-		})
-		if err != nil {
-			return errors.New("failed to request to shipment service")
-		}
-		return nil
-	})
-
-	var pstr *APIPaymentServiceTokenRes
-
-	eg.Go(func() error {
-		pstr, err = APIPaymentToken(getPaymentServiceURL(), &APIPaymentServiceTokenReq{
-			ShopID: PaymentServiceIsucariShopID,
-			Token:  rb.Token,
-			APIKey: PaymentServiceIsucariAPIKey,
-			Price:  targetItem.Price,
-		})
-		if err != nil {
-			return errors.New("payment service is failer")
-		}
-		return nil
-	})
 
 	if err = eg.Wait(); err != nil {
 		log.Print(err)
