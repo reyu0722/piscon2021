@@ -355,6 +355,11 @@ func main() {
 
 	mux := goji.NewMux()
 
+	err = getCategories()
+	if err != nil {
+		log.Fatalf("failed to get categories: %s.", err.Error())
+	}
+
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
 	mux.HandleFunc(pat.Get("/new_items.json"), getNewItems)
@@ -441,7 +446,28 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 	return userSimple, err
 }
 
+var categoriesCached map[int]*Category
+
+func getCategories () error {
+	rows, err := dbx.Queryx("SELECT * FROM `categories`")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var category Category
+		err = rows.StructScan(&category)
+		if err != nil {
+			return err
+		}
+		categoriesCached[category.ID] = &category
+	}
+	return nil
+}
+
+
 func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
+	/*
 	type CategoryDB struct {
 		ID                 int            `json:"id" db:"id"`
 		ParentID           int            `json:"parent_id" db:"parent_id"`
@@ -457,6 +483,14 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 		ParentCategoryName: categoryDB.ParentCategoryName.String,
 	}
 	return category, err
+	*/
+
+	category, ok := categoriesCached[categoryID]
+	if !ok {
+		return Category{}, sql.ErrNoRows
+	} else {
+		return *category, nil
+	}
 }
 
 func getConfigByName(name string) (string, error) {
@@ -1398,7 +1432,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		ID          int64         `json:"id" db:"id"`
 		SellerID    int64         `json:"seller_id" db:"seller_id"`
 		Seller      *UserSimpleDB `json:"seller" db:"seller"`
-		Buyer       *UserSimpleDB `json:"buyer" db:"buyer"`
+		Buyer      *UserSimpleDB `json:"buyer" db:"buyer"`
 		Status      string        `json:"status" db:"status"`
 		Name        string        `json:"name" db:"name"`
 		Price       int           `json:"price" db:"price"`
@@ -1465,9 +1499,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buyer := User{
-		ID:          targetItem.Buyer.ID.Int64,
-		AccountName: targetItem.Buyer.AccountName.String,
-		Address:     targetItem.Buyer.Address.String,
+		ID: targetItem.Buyer.ID.Int64,
+		AccountName:  targetItem.Buyer.AccountName.String,
+		Address: targetItem.Buyer.Address.String,
 	}
 
 	/*
