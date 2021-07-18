@@ -1124,7 +1124,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				itemDetails[i].ShippingStatus = ssr.Status
 				return nil
 			})
-			time.Sleep(time.Millisecond * 100)
 		}
 	}
 
@@ -1160,8 +1159,44 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := Item{}
-	err = dbx.Get(&item, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	type ItemDetailDB struct {
+		ID                        int64          `json:"id" db:"id"`
+		SellerID                  int64          `json:"seller_id" db:"seller_id"`
+		Seller                    *UserSimpleDB  `json:"seller" db:"seller"`
+		BuyerID                   int64          `json:"buyer_id,omitempty" db:"buyer_id"`
+		Buyer                     *UserSimpleDB  `json:"buyer,omitempty" db:"buyer"`
+		Status                    string         `json:"status" db:"status"`
+		Name                      string         `json:"name" db:"name"`
+		Price                     int            `json:"price" db:"price"`
+		Description               string         `json:"description" db:"description"`
+		ImageName                 string         `json:"image_name" db:"image_name"`
+		CategoryID                int            `json:"category_id" db:"category_id"`
+		TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+		TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+		ShippingStatus            sql.NullString `json:"shipping_status" db:"shipping_status"`
+		CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
+		UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
+	}
+
+	item := ItemDetailDB{}
+
+	queryStr := `SELECT i.*, 
+		u.id as "seller.id",
+		u.account_name as "seller.account_name",
+		u.num_sell_items as "seller.num_sell_items",
+		u2.id as "buyer.id",
+		u2.account_name as "buyer.account_name",
+		u2.num_sell_items as "buyer.num_sell_items",
+		t.id as "transaction_evidence_id",
+		t.status as "transaction_evidence_status",
+		s.status as "shipping_status"
+		FROM items i 
+		left outer join users u on u.id=i.seller_id 
+		left outer join users u2 on u2.id=i.buyer_id and (u.id = ? or u2.id = ?)
+		left outer join transaction_evidences t on t.item_id=i.id
+		left outer join shippings s on s.transaction_evidence_id=t.id 
+	`
+	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID, user.ID, itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1178,8 +1213,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserSimpleByID(dbx, item.SellerID)
-	if err != nil {
+	if !item.Seller.ID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		return
 	}
@@ -1187,7 +1221,11 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	itemDetail := ItemDetail{
 		ID:       item.ID,
 		SellerID: item.SellerID,
-		Seller:   &seller,
+		Seller: &UserSimple{
+			ID:           item.SellerID,
+			AccountName:  item.Seller.AccountName.String,
+			NumSellItems: int(item.Seller.NumSellItems.Int32),
+		},
 		// BuyerID
 		// Buyer
 		Status:      item.Status,
@@ -1203,40 +1241,23 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if (user.ID == item.SellerID || user.ID == item.BuyerID) && item.BuyerID != 0 {
-		buyer, err := getUserSimpleByID(dbx, item.BuyerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-			return
-		}
+	if !item.Buyer.ID.Valid {
 		itemDetail.BuyerID = item.BuyerID
-		itemDetail.Buyer = &buyer
-
-		transactionEvidence := TransactionEvidence{}
-		err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
-		if err != nil && err != sql.ErrNoRows {
-			// It's able to ignore ErrNoRows
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			return
+		itemDetail.Buyer = &UserSimple{
+			ID:           item.BuyerID,
+			AccountName:  item.Buyer.AccountName.String,
+			NumSellItems: int(item.Buyer.NumSellItems.Int32),
 		}
 
-		if transactionEvidence.ID > 0 {
-			shipping := Shipping{}
-			err = dbx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
-			if err == sql.ErrNoRows {
+		if item.TransactionEvidenceID.Int64 > 0 {
+			if !item.ShippingStatus.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
 				return
 			}
-			if err != nil {
-				log.Print(err)
-				outputErrorMsg(w, http.StatusInternalServerError, "db error")
-				return
-			}
 
-			itemDetail.TransactionEvidenceID = transactionEvidence.ID
-			itemDetail.TransactionEvidenceStatus = transactionEvidence.Status
-			itemDetail.ShippingStatus = shipping.Status
+			itemDetail.TransactionEvidenceID = item.TransactionEvidenceID.Int64
+			itemDetail.TransactionEvidenceStatus = item.TransactionEvidenceStatus.String
+			itemDetail.ShippingStatus = item.ShippingStatus.String
 		}
 	}
 
