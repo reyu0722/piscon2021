@@ -1584,7 +1584,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Price       int    `json:"price" db:"price"`
 	}
 
-	queryStr := `SELECT status FROM items where id = ?`
+	queryStr := `SELECT status, price FROM items where id = ?`
 
 	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
