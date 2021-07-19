@@ -1539,6 +1539,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buyer, err := getUserFromCache(tx, buyerID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		tx.Rollback()
+		return
+	}
 
 	category, err := getCategoryByID(dbx, targetItem.CategoryID)
 	if err != nil {
