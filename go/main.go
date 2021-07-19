@@ -1562,25 +1562,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, targetItem.SellerID)
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		return
-	}
-
-	buyer, err := getUserFromCache(dbx, buyerID.(int64))
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-		return
-	}
-
-	category, err := getCategoryByID(dbx, targetItem.CategoryID)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
-		return
-	}
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -1617,6 +1598,24 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if itemData.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		tx.Rollback()
+		return
+	}
+	seller, err := getUserFromCache(dbx, targetItem.SellerID)
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+
+	buyer, err := getUserFromCache(dbx, buyerID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		return
+	}
+
+	category, err := getCategoryByID(dbx, targetItem.CategoryID)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
 		return
 	}
 
