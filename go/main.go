@@ -529,7 +529,7 @@ func userCacheInitialize() {
 func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	user, ok := userCache[id]
 	if !ok {
-		err := sqlx.Get(q, &user, "SELECT * FROM `users` WHERE `id` = ?", id)
+		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address FROM `users` WHERE `id` = ?", id)
 		if err != nil {
 			log.Print(err)
 			return user, err
