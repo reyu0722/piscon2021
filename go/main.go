@@ -3,7 +3,6 @@ package main
 import (
 	crand "crypto/rand"
 	"database/sql"
-	"github.com/goccy/go-json"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -15,6 +14,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/goccy/go-json"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -1503,11 +1504,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-
-
 	targetItem := ItemDetail{}
 
-	err = tx.Get(&targetItem, "UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ? returning *",
+	err = tx.Get(&targetItem, "UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ? returning id, seller_id, status, name, price, description, category_id",
 		buyerID,
 		ItemStatusTrading,
 		time.Now(),
@@ -1614,8 +1613,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-
-
 
 	if err = eg.Wait(); err != nil {
 		log.Print(err)
