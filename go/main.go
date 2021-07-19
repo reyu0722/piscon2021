@@ -836,7 +836,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	queryStr := `SELECT i.*, 
 		u.id as "seller.id",
 		u.account_name as "seller.account_name",
-		u.num_sell_items as "seller.num_sell_items",
+		u.num_sell_items as "seller.num_sell_items"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
 	`
