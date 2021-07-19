@@ -1541,6 +1541,70 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type ItemDetail struct {
+		ID          int64  `json:"id" db:"id"`
+		SellerID    int64  `json:"seller_id" db:"seller_id"`
+		Status      string `json:"status" db:"status"`
+		Name        string `json:"name" db:"name"`
+		Description string `json:"description" db:"description"`
+		CategoryID  int    `json:"category_id" db:"category_id"`
+	}
+
+	queryStr := `SELECT id, seller_id, status,name, description, category_id FROM items where id = ?`
+	targetItem := ItemDetail{}
+	err = dbx.Get(&targetItem, queryStr, rb.ItemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if targetItem.Status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
+		return
+	}
+
+	if targetItem.SellerID == buyerID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		return
+	}
+
+	seller, err := getUserFromCache(dbx, targetItem.SellerID)
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+
+	buyer, err := getUserFromCache(dbx, buyerID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		return
+	}
+
+	category, err := getCategoryByID(dbx, targetItem.CategoryID)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
+		return
+	}
+
+	scr, err := APIShipmentCreate(getShipmentServiceURL(), &APIShipmentCreateReq{
+		ToAddress:   buyer.Address,
+		ToName:      buyer.AccountName,
+		FromAddress: seller.Address,
+		FromName:    seller.AccountName,
+	})
+
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
+		return
+	}
+
 	tx, err := dbx.Beginx()
 	if err != nil {
 		log.Print(err)
@@ -1548,95 +1612,39 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	type ItemDetail struct {
-		ID          int64  `json:"id" db:"id"`
-		SellerID    int64  `json:"seller_id" db:"seller_id"`
-		Name        string `json:"name" db:"name"`
-		Description string `json:"description" db:"description"`
-		CategoryID  int    `json:"category_id" db:"category_id"`
-		Price       int    `json:"price" db:"price"`
-		Status      string `json:"status" db:"status"`
+
+	type ItemTmp struct {
+		Status string `json:"status" db:"status"`
+		Price  int    `json:"price" db:"price"`
 	}
 
-	queryStr := `SELECT id, seller_id, name, description, category_id, price, status FROM items where id = ?`
-	targetItem := ItemDetail{}
-	err = tx.Get(&targetItem, queryStr, rb.ItemID)
+	queryStr = `SELECT status, price FROM items where id = ? for update`
+	data := ItemTmp{}
+	err = dbx.Get(&data, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		tx.Rollback()
 		return
 	}
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
 		return
 	}
 
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	if targetItem.SellerID == buyerID {
-		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
-		tx.Rollback()
-		return
-	}
-
-	seller, err := getUserFromCache(tx, targetItem.SellerID)
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		tx.Rollback()
-		return
-	}
-
-	buyer, err := getUserFromCache(tx, buyerID.(int64))
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-		tx.Rollback()
-		return
-	}
-
-	category, err := getCategoryByID(dbx, targetItem.CategoryID)
-	if err != nil {
-		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
-		tx.Rollback()
+	if targetItem.Status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
 
 	eg := errgroup.Group{}
-	var scr *APIShipmentCreateRes
-
-	eg.Go(func() error {
-		scr, err = APIShipmentCreate(getShipmentServiceURL(), &APIShipmentCreateReq{
-			ToAddress:   buyer.Address,
-			ToName:      buyer.AccountName,
-			FromAddress: seller.Address,
-			FromName:    seller.AccountName,
-		})
-		return err
-	})
-
-	if targetItem.Status != ItemStatusOnSale {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
-		tx.Rollback()
-		return
-	}
-
-	eg2 := errgroup.Group{}
 	var pstr *APIPaymentServiceTokenRes
 
-	eg2.Go(func() error {
+	eg.Go(func() error {
 		pstr, err = APIPaymentToken(getPaymentServiceURL(), &APIPaymentServiceTokenReq{
 			ShopID: PaymentServiceIsucariShopID,
 			Token:  rb.Token,
 			APIKey: PaymentServiceIsucariAPIKey,
-			Price:  targetItem.Price,
+			Price:  data.Price,
 		})
 		return err
 	})
@@ -1647,7 +1655,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
 		targetItem.Name,
-		targetItem.Price,
+		data.Price,
 		targetItem.Description,
 		category.ID,
 		category.ParentID,
@@ -1669,16 +1677,15 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	if err = eg.Wait(); err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
 		tx.Rollback()
 		return
 	}
@@ -1704,7 +1711,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = eg2.Wait(); err != nil {
+	if err = eg.Wait(); err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "payment service is failer")
 		tx.Rollback()
@@ -1729,32 +1736,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	queryStr = `SELECT status FROM items where id = ? for update`
-	var status string
-	err = tx.Get(&status, queryStr, rb.ItemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		tx.Rollback()
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-	if status != ItemStatusOnSale {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
-		tx.Rollback()
-		return
-	}
-
-	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		rb.ItemID,
-	)
 
 	tx.Commit()
 
