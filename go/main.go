@@ -551,7 +551,7 @@ var itemCache map[int64]ItemCached
 func itemCacheInitialize() {
 	itemCache = map[int64]ItemCached{}
 	items := []ItemCached{}
-	err := dbx.Select(&items, "SELECT * FROM `items`")
+	err := dbx.Select(&items, "SELECT id, seller_id, name, description, image_name, category_id FROM `items`")
 	if err != nil {
 		log.Print(err)
 		return
@@ -567,7 +567,7 @@ func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
 	}
 	item, ok := itemCache[id]
 	if !ok {
-		err := sqlx.Get(q, &item, "SELECT * FROM `users` WHERE `id` = ?", id)
+		err := sqlx.Get(q, &item, "SELECT id, seller_id, name, description, image_name, category_id FROM `users` WHERE `id` = ?", id)
 		if err != nil {
 			log.Print(err)
 			return item, err
