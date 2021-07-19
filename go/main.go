@@ -1494,21 +1494,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type ItemDetail struct {
-		ID          int64  `json:"id" db:"id"`
-		SellerID    int64  `json:"seller_id" db:"seller_id"`
-		Status      string `json:"status" db:"status"`
-		Name        string `json:"name" db:"name"`
-		Price       int    `json:"price" db:"price"`
-		Description string `json:"description" db:"description"`
-		CategoryID  int    `json:"category_id" db:"category_id"`
-	}
+	queryStr := `SELECT * FROM items where id = ? FOR UPDATE`
 
-	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
-		FROM items i where id = ? FOR UPDATE
-	`
-
-	targetItem := ItemDetail{}
+	targetItem := Item{}
 	err = tx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
