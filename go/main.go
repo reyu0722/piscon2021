@@ -364,6 +364,7 @@ func main() {
 
 	checkUserPassword()
 	userCacheInitialize()
+	itemCacheInitialize()
 
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
@@ -503,11 +504,18 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	}
 }
 
-var userCache map[int64]User
+var userCache map[int64]UserCached
+
+type UserCached struct {
+	ID             int64  `json:"id" db:"id"`
+	AccountName    string `json:"account_name" db:"account_name"`
+	HashedPassword []byte `json:"-" db:"hashed_password"`
+	Address        string `json:"address,omitempty" db:"address"`
+}
 
 func userCacheInitialize() {
-	userCache = map[int64]User{}
-	users := []User{}
+	userCache = map[int64]UserCached{}
+	users := []UserCached{}
 	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
 		log.Print(err)
@@ -518,7 +526,7 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (User, error) {
+func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	user, ok := userCache[id]
 	if !ok {
 		err := sqlx.Get(q, &user, "SELECT * FROM `users` WHERE `id` = ?", id)
@@ -534,7 +542,12 @@ func getUserFromCache(q sqlx.Queryer, id int64) (User, error) {
 }
 func addUserCache(user User) {
 	if _, ok := userCache[user.ID]; !ok {
-		userCache[user.ID] = user
+		userCache[user.ID] = UserCached{
+			ID:             user.ID,
+			AccountName:    user.AccountName,
+			HashedPassword: user.HashedPassword,
+			Address:        user.Address,
+		}
 	}
 }
 
@@ -1580,8 +1593,8 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ItemData struct {
-		Status      string `json:"status" db:"status"`
-		Price       int    `json:"price" db:"price"`
+		Status string `json:"status" db:"status"`
+		Price  int    `json:"price" db:"price"`
 	}
 
 	queryStr := `SELECT status, price FROM items where id = ?`
@@ -2286,7 +2299,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	addUserCache(seller)
 
 	result, err := tx.Exec("INSERT INTO `items` (`seller_id`, `status`, `name`, `price`, `description`,`image_name`,`category_id`) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		seller.ID,
@@ -2311,6 +2323,15 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+
+	addItemCache(Item{
+		ID:          itemID,
+		Name:        name,
+		Description: description,
+		ImageName:   imgName,
+		CategoryID:  category.ID,
+		SellerID:    seller.ID,
+	})
 
 	now := time.Now()
 	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
@@ -2401,7 +2422,6 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	addUserCache(seller)
 
 	now := time.Now()
 	// last_bump + 3s > now
@@ -2523,7 +2543,6 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	addUserCache(u)
 
 	if newPassword, ok := newPasswords[u.ID]; !ok {
 		err = bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(password))
@@ -2631,6 +2650,12 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		AccountName: accountName,
 		Address:     address,
 	}
+	addUserCache(User{
+		ID:             userID,
+		AccountName:    accountName,
+		Address:        address,
+		HashedPassword: hashedPassword,
+	})
 
 	session := getSession(r)
 	session.Values["user_id"] = u.ID
