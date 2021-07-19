@@ -2,3 +2,4 @@ public
 frontend
 sql/initial.sql
 go/isucari
+go/userpass.json

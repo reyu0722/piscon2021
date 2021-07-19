@@ -935,7 +935,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
-
 	}
 
 	query := r.URL.Query()
@@ -1040,32 +1039,21 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	itemDetails := []ItemDetail{}
+	itemDetails := make([]ItemDetail, len(itemDetailDBs))
 
 	eg := errgroup.Group{}
 
 	hasNext := false
-
 	for i, item := range itemDetailDBs {
 		if i >= 10 {
 			hasNext = true
 			break
 		}
-		/*
-			seller, err := getUserSimpleByID(tx, item.SellerID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "seller not found")
-				tx.Rollback()
-				return
-			}
-		*/
-
 		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
 		}
-
 		category, err := getCategoryByID(tx, item.CategoryID)
 		if err != nil {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
@@ -1073,7 +1061,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		itemDetail := ItemDetail{
+		itemDetails[i] = ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
 			Seller: &UserSimple{
@@ -1118,15 +1106,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &UserSimple{
+			itemDetails[i].BuyerID = item.BuyerID
+			itemDetails[i].Buyer = &UserSimple{
 				ID:           item.Buyer.ID.Int64,
 				AccountName:  item.Buyer.AccountName.String,
 				NumSellItems: int(item.Buyer.NumSellItems.Int32),
 			}
 		}
-
-		itemDetails = append(itemDetails, itemDetail)
 
 		if item.TransactionEvidenceID.Int64 > 0 {
 			if !item.ReserveID.Valid {
@@ -1140,12 +1126,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 					ReserveID: reserveID,
 				})
 				if err != nil {
-					ssr, err = APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-						ReserveID: reserveID,
-					})
-					if err != nil {
-						return err
-					}
+					return err
 				}
 				itemDetails[i].ShippingStatus = ssr.Status
 				return nil
