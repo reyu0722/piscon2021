@@ -1569,6 +1569,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
 		FROM items i where id = ?
 	`
+	itemBuying[rb.ItemID] = true
 
 	targetItem := ItemDetail{}
 	err = tx.Get(&targetItem, queryStr, rb.ItemID)
@@ -1742,6 +1743,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemBuying[rb.ItemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
