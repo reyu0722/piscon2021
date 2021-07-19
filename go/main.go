@@ -1558,7 +1558,8 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		id = (@id := id),
 		status = (@status := status),
 		status = ?, 
-		price = (@price := price)
+		price = (@price := price),
+		created_at = ?
 		WHERE id = ?
 	`
 	_, err = tx.Exec(queryStr,
