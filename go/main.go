@@ -132,7 +132,7 @@ type ItemDetailDB struct {
 	CategoryID                int            `json:"category_id" db:"category_id"`
 	TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
 	TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
-	ReserveID                 sql.NullString `json:"reserve_id" db:"reserve_id"`
+	ShippingStatus            sql.NullString `json:"shipping_status" db:"shipping_status"`
 	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
@@ -1063,7 +1063,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		u2.num_sell_items as "buyer.num_sell_items",
 		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence_status",
-		s.reserve_id as "reserve_id"
+		s.status as "shipping_status"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
 		left outer join users u2 on u2.id=i.buyer_id 
@@ -1132,7 +1132,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		itemDetails = make([]ItemDetail, len(itemDetailDBs))
 	}
-	eg := errgroup.Group{}
 
 	hasNext := false
 	for i, item := range itemDetailDBs {
@@ -1206,32 +1205,14 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if item.TransactionEvidenceID.Int64 > 0 {
-			if !item.ReserveID.Valid {
+			if !item.ShippingStatus.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
 				tx.Rollback()
 				return
 			}
-			i, reserveID := i, item.ReserveID.String
-			eg.Go(func() error {
-				ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-					ReserveID: reserveID,
-				})
-				if err != nil {
-					return err
-				}
-				itemDetails[i].ShippingStatus = ssr.Status
-				return nil
-			})
+			itemDetails[i].ShippingStatus = item.ShippingStatus.String
 		}
 	}
-
-	if err := eg.Wait(); err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-		tx.Rollback()
-		return
-	}
-
 	tx.Commit()
 
 	rts := resTransactions{
@@ -1637,7 +1618,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-
 
 	eg := errgroup.Group{}
 	var scr *APIShipmentCreateRes
