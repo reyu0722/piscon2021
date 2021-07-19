@@ -1533,10 +1533,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		itemBuying[rb.ItemID] = mutex
 	}
 
-	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id FROM items i where id = ?`
-
-	targetItem := ItemDetail{}
-	err = dbx.Get(&targetItem, queryStr, rb.ItemID)
+	targetItem, err := getItemCached(dbx, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1549,10 +1546,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
-		return
-	}
-	if targetItem.Status != ItemStatusOnSale {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
 
@@ -1586,20 +1579,15 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type ItemDetail struct {
-		ID          int64  `json:"id" db:"id"`
-		SellerID    int64  `json:"seller_id" db:"seller_id"`
+	type ItemData struct {
 		Status      string `json:"status" db:"status"`
-		Name        string `json:"name" db:"name"`
 		Price       int    `json:"price" db:"price"`
-		Description string `json:"description" db:"description"`
-		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	queryStr = `SELECT status FROM items where id = ?`
+	queryStr := `SELECT status FROM items where id = ?`
 
-	var status string
-	err = tx.Get(&status, queryStr, rb.ItemID)
+	itemData := ItemData{}
+	err = tx.Get(&itemData, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1613,7 +1601,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if status != ItemStatusOnSale {
+	if itemData.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		tx.Rollback()
 		return
@@ -1653,7 +1641,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			ShopID: PaymentServiceIsucariShopID,
 			Token:  rb.Token,
 			APIKey: PaymentServiceIsucariAPIKey,
-			Price:  targetItem.Price,
+			Price:  itemData.Price,
 		})
 		return err
 	})
@@ -1664,7 +1652,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
 		targetItem.Name,
-		targetItem.Price,
+		itemData.Price,
 		targetItem.Description,
 		category.ID,
 		category.ParentID,
