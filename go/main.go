@@ -3,7 +3,7 @@ package main
 import (
 	crand "crypto/rand"
 	"database/sql"
-	"encoding/json"
+	"github.com/goccy/go-json"
 	"fmt"
 	"html/template"
 	"io/ioutil"

@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/goccy/go-json v0.7.4 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/gorilla/sessions v1.2.1
 	github.com/jmoiron/sqlx v1.3.4
