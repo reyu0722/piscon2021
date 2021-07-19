@@ -1493,8 +1493,42 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+	type Item struct {
+		ID          int64  `json:"id" db:"id"`
+		SellerID    int64  `json:"seller_id" db:"seller_id"`
+		Status      string `json:"status" db:"status"`
+		Name        string `json:"name" db:"name"`
+		Price       int    `json:"price" db:"price"`
+		Description string `json:"description" db:"description"`
+		CategoryID  int    `json:"category_id" db:"category_id"`
+	}
 
-	queryStr := `SELECT * FROM items where id = ? FOR UPDATE`
+	queryStr := `UPDATE items SET buyer_id = ?, 
+		id = (@id := id),
+		status = (@status := ?), 
+		updated_at = ?, 
+		seller_id = (@seller_id := seller_id),
+		name = (@name := name),
+		description = (@description := description),
+		price = (@price := price),
+		category_id = (@category_id := category_id)
+		WHERE id = ?
+	`
+	_, err = tx.Exec(queryStr,
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		rb.ItemID,
+	)
+
+	queryStr = `SELECT @id as id,
+		@seller_id as seller_id,
+		status as @status,
+		@name as name, 
+		@price as price, 
+		@description as description, 
+		@category_id as category_id
+	`
 
 	targetItem := Item{}
 	err = tx.Get(&targetItem, queryStr, rb.ItemID)
@@ -1600,12 +1634,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		targetItem.ID,
-	)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
