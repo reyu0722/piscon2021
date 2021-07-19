@@ -536,6 +536,11 @@ func getUserFromCache(q sqlx.Queryer, id int64) (User, error) {
 		return userCache[id], nil
 	}
 }
+func addUserCache(user User) {
+	if _, ok := userCache[user.ID]; !ok {
+		userCache[user.ID] = user
+	}
+}
 
 func getConfigByName(name string) (string, error) {
 	config := Config{}
@@ -2238,6 +2243,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+	addUserCache(seller)
 
 	result, err := tx.Exec("INSERT INTO `items` (`seller_id`, `status`, `name`, `price`, `description`,`image_name`,`category_id`) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		seller.ID,
@@ -2352,6 +2358,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+	addUserCache(seller)
 
 	now := time.Now()
 	// last_bump + 3s > now
@@ -2473,6 +2480,7 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	addUserCache(u)
 
 	if newPassword, ok := newPasswords[u.ID]; !ok {
 		err = bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(password))
