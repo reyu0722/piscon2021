@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -1519,11 +1520,11 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 	w.Write(shipping.ImgBinary)
 }
 
-var itemBuying map[int64]bool
+var itemBuying map[int64]*sync.Mutex
 
 func postBuy(w http.ResponseWriter, r *http.Request) {
 	if itemBuying == nil {
-		itemBuying = make(map[int64]bool)
+		itemBuying = make(map[int64]*sync.Mutex)
 	}
 	rb := reqBuy{}
 
@@ -1545,9 +1546,14 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
-	for f, ok := itemBuying[rb.ItemID]; ok && f; {
-		time.Sleep(time.Millisecond * 10)
+	mutex, ok := itemBuying[rb.ItemID]
+	if !ok {
+		mutex = new(sync.Mutex)
+		itemBuying[rb.ItemID] = mutex
 	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1570,7 +1576,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
 		FROM items i where id = ?
 	`
-	itemBuying[rb.ItemID] = true
 
 	targetItem := ItemDetail{}
 	err = tx.Get(&targetItem, queryStr, rb.ItemID)
@@ -1744,7 +1749,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemBuying[rb.ItemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
