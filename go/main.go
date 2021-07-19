@@ -1505,7 +1505,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	queryStr := `UPDATE items SET buyer_id = ?, 
 		id = (@id := id),
-		status = (@status := ?), 
+		status = (@status := status) = ?, 
 		updated_at = ?, 
 		seller_id = (@seller_id := seller_id),
 		name = (@name := name),
