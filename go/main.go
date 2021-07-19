@@ -361,6 +361,7 @@ func main() {
 	mux := goji.NewMux()
 
 	checkUserPassword()
+	userCacheInitialize()
 
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
@@ -503,6 +504,36 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 		return Category{}, sql.ErrNoRows
 	} else {
 		return *category, nil
+	}
+}
+
+var userCache map[int64]User
+
+func userCacheInitialize() {
+	userCache = map[int64]User{}
+	users := []User{}
+	err := dbx.Select(&users, "SELECT * FROM `users`")
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	for _, user := range users {
+		userCache[user.ID] = user
+	}
+}
+
+func getUserFromCache(q sqlx.Queryer, id int64) (User, error) {
+	user, ok := userCache[id]
+	if !ok {
+		err := sqlx.Get(q, &user, "SELECT * FROM `users` WHERE `id` = ?", id)
+		if err != nil {
+			log.Print(err)
+			return user, err
+		}
+		userCache[id] = user
+		return user, nil
+	} else {
+		return userCache[id], nil
 	}
 }
 
@@ -1459,37 +1490,22 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type UserSimpleDB struct {
-		ID          sql.NullInt64  `json:"id" db:"id"`
-		AccountName sql.NullString `json:"account_name" db:"account_name"`
-		Address     sql.NullString `json:"address" db:"address"`
-	}
 	type ItemDetail struct {
-		ID          int64         `json:"id" db:"id"`
-		SellerID    int64         `json:"seller_id" db:"seller_id"`
-		Seller      *UserSimpleDB `json:"seller" db:"seller"`
-		Buyer       *UserSimpleDB `json:"buyer" db:"buyer"`
-		Status      string        `json:"status" db:"status"`
-		Name        string        `json:"name" db:"name"`
-		Price       int           `json:"price" db:"price"`
-		Description string        `json:"description" db:"description"`
-		CategoryID  int           `json:"category_id" db:"category_id"`
+		ID          int64  `json:"id" db:"id"`
+		SellerID    int64  `json:"seller_id" db:"seller_id"`
+		Status      string `json:"status" db:"status"`
+		Name        string `json:"name" db:"name"`
+		Price       int    `json:"price" db:"price"`
+		Description string `json:"description" db:"description"`
+		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id, 
-		u.id as "seller.id",
-		u.account_name as "seller.account_name",
-		u.address as "seller.address",
-		u2.id as "buyer.id",
-		u2.account_name as "buyer.account_name",
-		u2.address as "buyer.address"
-		FROM (SELECT * from items where id = ? FOR UPDATE) i 
-		left outer join users u on u.id=i.seller_id
-		left outer join users u2 on u2.id=? 
+	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
+		FROM (SELECT * from items where id = ? FOR UPDATE) i
 	`
 
 	targetItem := ItemDetail{}
-	err = tx.Get(&targetItem, queryStr, rb.ItemID, buyerID)
+	err = tx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1515,23 +1531,14 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !targetItem.Seller.ID.Valid {
+	seller, err := getUserFromCache(tx, targetItem.SellerID)
+	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
 		return
 	}
 
-	seller := User{
-		ID:          targetItem.Seller.ID.Int64,
-		AccountName: targetItem.Seller.AccountName.String,
-		Address:     targetItem.Seller.Address.String,
-	}
-
-	buyer := User{
-		ID:          targetItem.Buyer.ID.Int64,
-		AccountName: targetItem.Buyer.AccountName.String,
-		Address:     targetItem.Buyer.Address.String,
-	}
+	buyer, err := getUserFromCache(tx, buyerID.(int64))
 
 	category, err := getCategoryByID(dbx, targetItem.CategoryID)
 	if err != nil {
