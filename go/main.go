@@ -1553,13 +1553,13 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
@@ -1580,28 +1580,25 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 	if err != nil {
 		log.Print(err)
+
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
 	if targetItem.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
 	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
@@ -1609,7 +1606,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
@@ -1617,7 +1613,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
@@ -1627,7 +1622,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
@@ -1641,11 +1635,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
-		mutex.Unlock()
 		return
 	}
 
-	mutex.Unlock()	
 
 	eg := errgroup.Group{}
 	var scr *APIShipmentCreateRes
