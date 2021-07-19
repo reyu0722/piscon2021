@@ -1558,14 +1558,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
-		FROM items i where id = ? FOR UPDATE
-	`
-	queryStr = `SELECT @id as id, @price as price, @status as status`
-
+	queryStr := `SELECT id, seller_id, status, name, price, description, category_id FROM items where id = ? FOR UPDATE`
 	targetItem := Item{}
 	err = tx.Get(&targetItem, queryStr)
-	if err == sql.ErrNoRows || targetItem.ID == 0 {
+	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
 		return
