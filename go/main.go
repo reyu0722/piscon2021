@@ -1575,9 +1575,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryStr = `SELECT @id as id,
-		@price as price
-	`
+	queryStr = `SELECT @id as id, @price as price, @status as status`
 
 	targetItem := Item{}
 	err = tx.Get(&targetItem, queryStr)
