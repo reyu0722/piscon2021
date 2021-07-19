@@ -1548,33 +1548,19 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	type Item struct {
-		ID     int64  `json:"id" db:"id"`
-		Status string `json:"status" db:"status"`
-		Price  int    `json:"price" db:"price"`
+	type ItemDetail struct {
+		ID          int64  `json:"id" db:"id"`
+		SellerID    int64  `json:"seller_id" db:"seller_id"`
+		Status      string `json:"status" db:"status"`
+		Name        string `json:"name" db:"name"`
+		Price       int    `json:"price" db:"price"`
+		Description string `json:"description" db:"description"`
+		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	queryStr := `UPDATE items SET buyer_id = ?, 
-		id = (@id := id),
-		status = (@status := status),
-		status = ?, 
-		price = (@price := price),
-		created_at = ?
-		WHERE id = ?
+	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
+		FROM items i where id = ? FOR UPDATE
 	`
-	_, err = tx.Exec(queryStr,
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		rb.ItemID,
-	)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
 	queryStr = `SELECT @id as id, @price as price, @status as status`
 
 	targetItem := Item{}
@@ -1587,12 +1573,17 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Print(err)
-
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
 	}
-	item, err := getItemCached(tx, targetItem.ID)
+
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
@@ -1606,13 +1597,13 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if item.SellerID == buyerID {
+	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		tx.Rollback()
 		return
 	}
 
-	seller, err := getUserFromCache(tx, item.SellerID)
+	seller, err := getUserFromCache(tx, targetItem.SellerID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
@@ -1626,7 +1617,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, err := getCategoryByID(dbx, item.CategoryID)
+	category, err := getCategoryByID(dbx, targetItem.CategoryID)
 	if err != nil {
 		log.Print(err)
 
@@ -1662,13 +1653,13 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	})
 
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		item.SellerID,
+		targetItem.SellerID,
 		buyerID,
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
-		item.Name,
+		targetItem.Name,
 		targetItem.Price,
-		item.Description,
+		targetItem.Description,
 		category.ID,
 		category.ParentID,
 	)
@@ -1706,7 +1697,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec("INSERT INTO `shippings` (`transaction_evidence_id`, `status`, `item_name`, `item_id`, `reserve_id`, `reserve_time`, `to_address`, `to_name`, `from_address`, `from_name`, `img_binary`) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		transactionEvidenceID,
 		ShippingsStatusInitial,
-		item.Name,
+		targetItem.Name,
 		targetItem.ID,
 		scr.ReserveID,
 		scr.ReserveTime,
