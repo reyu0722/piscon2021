@@ -833,12 +833,19 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	queryStr := `SELECT i.*, 
+		u.id as "seller.id",
+		u.account_name as "seller.account_name",
+		u.num_sell_items as "seller.num_sell_items",
+		FROM items i 
+		left outer join users u on u.id=i.seller_id 
+	`
 	var inQuery string
 	var inArgs []interface{}
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		inQuery, inArgs, err = sqlx.In(
-			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id IN (?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
@@ -855,7 +862,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		inQuery, inArgs, err = sqlx.In(
-			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id IN (?) ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (?) ORDER BY created_at DESC, id DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
@@ -868,7 +875,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items := []Item{}
+	items := []ItemDetailDB{}
 	err = dbx.Select(&items, inQuery, inArgs...)
 
 	if err != nil {
@@ -879,8 +886,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
+		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			return
 		}
@@ -890,9 +896,13 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		itemSimples = append(itemSimples, ItemSimple{
-			ID:         item.ID,
-			SellerID:   item.SellerID,
-			Seller:     &seller,
+			ID:       item.ID,
+			SellerID: item.SellerID,
+			Seller: &UserSimple{
+				ID:           item.Seller.ID.Int64,
+				AccountName:  item.Seller.AccountName.String,
+				NumSellItems: int(item.Seller.NumSellItems.Int32),
+			},
 			Status:     item.Status,
 			Name:       item.Name,
 			Price:      item.Price,
@@ -1571,16 +1581,16 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/*
-	targetItem, err := getItemCached(dbx, rb.ItemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
+		targetItem, err := getItemCached(dbx, rb.ItemID)
+		if err == sql.ErrNoRows {
+			outputErrorMsg(w, http.StatusNotFound, "item not found")
+			return
+		}
+		if err != nil {
+			log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return
+		}
 	*/
 
 	if targetItem.SellerID == buyerID {
@@ -1598,7 +1608,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-
 
 	queryStr = `SELECT status, price FROM items where id = ?`
 
