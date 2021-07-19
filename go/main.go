@@ -1070,8 +1070,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	itemDetails := make([]ItemDetail, len(itemDetailDBs))
-
+	var itemDetails []ItemDetail
+	if len(itemDetailDBs) >= 10 {
+		itemDetails = make([]ItemDetail, 10)
+	} else {
+		itemDetails = make([]ItemDetail, len(itemDetailDBs))
+	}
 	eg := errgroup.Group{}
 
 	hasNext := false
