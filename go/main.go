@@ -537,6 +537,61 @@ func addUserCache(user User) {
 	}
 }
 
+type ItemCached struct {
+	ID          int64  `json:"id" db:"id"`
+	SellerID    int64  `json:"seller_id" db:"seller_id"`
+	Name        string `json:"name" db:"name"`
+	Description string `json:"description" db:"description"`
+	ImageName   string `json:"image_name" db:"image_name"`
+	CategoryID  int    `json:"category_id" db:"category_id"`
+}
+
+var itemCache map[int64]ItemCached
+
+func itemCacheInitialize() {
+	itemCache = map[int64]ItemCached{}
+	items := []ItemCached{}
+	err := dbx.Select(&items, "SELECT * FROM `items`")
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	for _, item := range items {
+		itemCache[item.ID] = item
+	}
+}
+
+func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
+	if itemCache == nil {
+		itemCacheInitialize()
+	}
+	item, ok := itemCache[id]
+	if !ok {
+		err := sqlx.Get(q, &item, "SELECT * FROM `users` WHERE `id` = ?", id)
+		if err != nil {
+			log.Print(err)
+			return item, err
+		}
+		itemCache[id] = item
+		return item, nil
+	} else {
+		return item, nil
+	}
+}
+
+func addItemCache(item Item) {
+	if _, ok := itemCache[item.ID]; !ok {
+		itemCache[item.ID] = ItemCached{
+			ID:          item.ID,
+			SellerID:    item.SellerID,
+			Name:        item.Name,
+			Description: item.Description,
+			ImageName:   item.ImageName,
+			CategoryID:  item.CategoryID,
+		}
+	}
+}
+
 func getConfigByName(name string) (string, error) {
 	config := Config{}
 	err := dbx.Get(&config, "SELECT * FROM `configs` WHERE `name` = ?", name)
@@ -1494,25 +1549,16 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type Item struct {
-		ID          int64  `json:"id" db:"id"`
-		SellerID    int64  `json:"seller_id" db:"seller_id"`
-		Status      string `json:"status" db:"status"`
-		Name        string `json:"name" db:"name"`
-		Price       int    `json:"price" db:"price"`
-		Description string `json:"description" db:"description"`
-		CategoryID  int    `json:"category_id" db:"category_id"`
+		ID     int64  `json:"id" db:"id"`
+		Status string `json:"status" db:"status"`
+		Price  int    `json:"price" db:"price"`
 	}
 
 	queryStr := `UPDATE items SET buyer_id = ?, 
 		id = (@id := id),
 		status = (@status := status),
 		status = ?, 
-		updated_at = ?, 
-		seller_id = (@seller_id := seller_id),
-		name = (@name := name),
-		description = (@description := description),
-		price = (@price := price),
-		category_id = (@category_id := category_id)
+		price = (@price := price)
 		WHERE id = ?
 	`
 	_, err = tx.Exec(queryStr,
@@ -1529,12 +1575,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	queryStr = `SELECT @id as id,
-		@seller_id as seller_id,
-		@status as status,
-		@name as name, 
-		@price as price, 
-		@description as description, 
-		@category_id as category_id
+		@price as price
 	`
 
 	targetItem := Item{}
@@ -1544,9 +1585,17 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+
 	if err != nil {
 		log.Print(err)
 
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+	item, err := getItemCached(tx, targetItem.ID)
+	if err != nil {
+		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
@@ -1558,13 +1607,13 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if targetItem.SellerID == buyerID {
+	if item.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		tx.Rollback()
 		return
 	}
 
-	seller, err := getUserFromCache(tx, targetItem.SellerID)
+	seller, err := getUserFromCache(tx, item.SellerID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
@@ -1578,7 +1627,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, err := getCategoryByID(dbx, targetItem.CategoryID)
+	category, err := getCategoryByID(dbx, item.CategoryID)
 	if err != nil {
 		log.Print(err)
 
@@ -1614,13 +1663,13 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	})
 
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		targetItem.SellerID,
+		item.SellerID,
 		buyerID,
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
-		targetItem.Name,
+		item.Name,
 		targetItem.Price,
-		targetItem.Description,
+		item.Description,
 		category.ID,
 		category.ParentID,
 	)
@@ -1658,7 +1707,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec("INSERT INTO `shippings` (`transaction_evidence_id`, `status`, `item_name`, `item_id`, `reserve_id`, `reserve_time`, `to_address`, `to_name`, `from_address`, `from_name`, `img_binary`) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		transactionEvidenceID,
 		ShippingsStatusInitial,
-		targetItem.Name,
+		item.Name,
 		targetItem.ID,
 		scr.ReserveID,
 		scr.ReserveTime,
