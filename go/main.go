@@ -1510,7 +1510,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
-		FROM (SELECT * from items where id = ? FOR UPDATE) i
+		FROM items i where id = ? FOR UPDATE
 	`
 
 	targetItem := ItemDetail{}
