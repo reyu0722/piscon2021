@@ -1521,7 +1521,6 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 
 var itemBuying map[int64]bool
 
-
 func postBuy(w http.ResponseWriter, r *http.Request) {
 	if itemBuying == nil {
 		itemBuying = make(map[int64]bool)
@@ -1546,7 +1545,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
-	for f, ok := itemBuying[rb.ItemID]; ok && f; {}
+	for f, ok := itemBuying[rb.ItemID]; ok && f; {
+		time.Sleep(time.Millisecond * 10)
+	}
 
 	tx, err := dbx.Beginx()
 	if err != nil {
