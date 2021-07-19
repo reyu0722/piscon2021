@@ -1520,10 +1520,16 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		time.Now(),
 		rb.ItemID,
 	)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
 
 	queryStr = `SELECT @id as id,
 		@seller_id as seller_id,
-		status as @status,
+		@status as status,
 		@name as name, 
 		@price as price, 
 		@description as description, 
