@@ -84,9 +84,9 @@ type User struct {
 }
 
 type UserSimple struct {
-	ID           int64  `json:"id"`
-	AccountName  string `json:"account_name"`
-	NumSellItems int    `json:"num_sell_items"`
+	ID           int64  `json:"id" db:"id"`
+	AccountName  string `json:"account_name" db:"account_name"`
+	NumSellItems int    `json:"num_sell_items" db:"num_sell_items"`
 }
 
 type Item struct {
@@ -438,16 +438,10 @@ func getUser(r *http.Request) (user User, errCode int, errMsg string) {
 	return user, http.StatusOK, ""
 }
 
-func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err error) {
-	user := User{}
-	err = sqlx.Get(q, &user, "SELECT id, account_name, num_sell_items FROM `users` WHERE `id` = ?", userID)
-	if err != nil {
-		return userSimple, err
-	}
-	userSimple.ID = user.ID
-	userSimple.AccountName = user.AccountName
-	userSimple.NumSellItems = user.NumSellItems
-	return userSimple, err
+func getUserSimpleByID(q sqlx.Queryer, userID int64) (UserSimple, error) {
+	user := UserSimple{}
+	err := sqlx.Get(q, &user, "SELECT id, account_name, num_sell_items FROM `users` WHERE `id` = ?", userID)
+	return user, err
 }
 
 var categoriesCached map[int]*Category
