@@ -54,6 +54,7 @@ type APIShipmentStatusReq struct {
 }
 
 func APIPaymentToken(paymentURL string, param *APIPaymentServiceTokenReq) (*APIPaymentServiceTokenRes, error) {
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 32
 	b, _ := json.Marshal(param)
 
 	req, err := http.NewRequest(http.MethodPost, paymentURL+"/token", bytes.NewBuffer(b))
@@ -88,6 +89,7 @@ func APIPaymentToken(paymentURL string, param *APIPaymentServiceTokenReq) (*APIP
 }
 
 func APIShipmentCreate(shipmentURL string, param *APIShipmentCreateReq) (*APIShipmentCreateRes, error) {
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 32
 	b, _ := json.Marshal(param)
 
 	req, err := http.NewRequest(http.MethodPost, shipmentURL+"/create", bytes.NewBuffer(b))
@@ -123,6 +125,7 @@ func APIShipmentCreate(shipmentURL string, param *APIShipmentCreateReq) (*APIShi
 }
 
 func APIShipmentRequest(shipmentURL string, param *APIShipmentRequestReq) ([]byte, error) {
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 32
 	b, _ := json.Marshal(param)
 
 	shipmentURL = strings.Replace(shipmentURL, "localhost", "10.0.0.101", 1)
@@ -154,6 +157,7 @@ func APIShipmentRequest(shipmentURL string, param *APIShipmentRequestReq) ([]byt
 }
 
 func APIShipmentStatus(shipmentURL string, param *APIShipmentStatusReq) (*APIShipmentStatusRes, error) {
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 32
 	b, _ := json.Marshal(param)
 
 	req, err := http.NewRequest(http.MethodGet, shipmentURL+"/status", bytes.NewBuffer(b))
