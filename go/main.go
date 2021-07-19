@@ -1504,14 +1504,12 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	targetItem := ItemDetail{}
+	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
+		FROM items i where id = ? FOR UPDATE
+	`
 
-	err = tx.Get(&targetItem, "UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ? returning id, seller_id, status, name, price, description, category_id",
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		rb.ItemID,
-	)
+	targetItem := ItemDetail{}
+	err = tx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1609,6 +1607,19 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
+	if err != nil {
+		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
