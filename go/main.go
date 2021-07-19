@@ -1558,7 +1558,21 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	queryStr := `SELECT id, seller_id, status, name, price, description, category_id FROM items where id = ? FOR UPDATE`
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		rb.ItemID,
+	)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+
+
+	queryStr := `SELECT id, seller_id, status, name, price, description, category_id FROM items where id = ?`
 	targetItem := Item{}
 	err = tx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
@@ -1574,18 +1588,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		targetItem.ID,
-	)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
 
 	if targetItem.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
