@@ -1554,9 +1554,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Name        string `json:"name" db:"name"`
 		Description string `json:"description" db:"description"`
 		CategoryID  int    `json:"category_id" db:"category_id"`
+		Price       int    `json:"price" db:"price"`
+		Status      string `json:"status" db:"status"`
 	}
 
-	queryStr := `SELECT id, seller_id, name, description, category_id FROM items where id = ?`
+	queryStr := `SELECT id, seller_id, name, description, category_id, price, status FROM items where id = ?`
 	targetItem := ItemDetail{}
 	err = tx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
@@ -1620,37 +1622,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return err
 	})
 
-	type ItemTmp struct {
-		Status string `json:"status" db:"status"`
-		Price  int    `json:"price" db:"price"`
-	}
-
-	queryStr = `SELECT status, price FROM items where id = ? for update`
-	data := ItemTmp{}
-	err = tx.Get(&data, queryStr, rb.ItemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		tx.Rollback()
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-	if data.Status != ItemStatusOnSale {
+	if targetItem.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		tx.Rollback()
 		return
 	}
-
-	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		rb.ItemID,
-	)
 
 	eg2 := errgroup.Group{}
 	var pstr *APIPaymentServiceTokenRes
@@ -1660,7 +1636,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			ShopID: PaymentServiceIsucariShopID,
 			Token:  rb.Token,
 			APIKey: PaymentServiceIsucariAPIKey,
-			Price:  data.Price,
+			Price:  targetItem.Price,
 		})
 		return err
 	})
@@ -1671,7 +1647,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
 		targetItem.Name,
-		data.Price,
+		targetItem.Price,
 		targetItem.Description,
 		category.ID,
 		category.ParentID,
@@ -1753,6 +1729,32 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+	queryStr = `SELECT status FROM items where id = ? for update`
+	var status string
+	err = tx.Get(&status, queryStr, rb.ItemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		tx.Rollback()
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+	if status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		rb.ItemID,
+	)
 
 	tx.Commit()
 
