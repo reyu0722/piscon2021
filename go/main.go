@@ -1551,10 +1551,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Price  int    `json:"price" db:"price"`
 	}
 
-	queryStr := `SELECT status, price FROM items where id = ?`
+	queryStr := `SELECT * FROM items where id = ?`
 
-	itemData := ItemData{}
-	err = dbx.Get(&itemData, queryStr, rb.ItemID)
+	targetItem := Item{}
+	err = dbx.Get(&targetItem, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1565,11 +1565,12 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if itemData.Status != ItemStatusOnSale {
+	if targetItem.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
 
+	/*
 	targetItem, err := getItemCached(dbx, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
@@ -1580,6 +1581,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	*/
 
 	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
@@ -1600,7 +1602,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	queryStr = `SELECT status, price FROM items where id = ?`
 
-	itemData = ItemData{}
+	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
