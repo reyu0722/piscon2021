@@ -1533,6 +1533,48 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		itemBuying[rb.ItemID] = mutex
 	}
 
+	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id FROM items i where id = ?`
+
+	targetItem := ItemDetail{}
+	err = dbx.Get(&targetItem, queryStr, rb.ItemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if targetItem.SellerID == buyerID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		return
+	}
+	if targetItem.Status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
+		return
+	}
+
+	seller, err := getUserFromCache(dbx, targetItem.SellerID)
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+
+	buyer, err := getUserFromCache(dbx, buyerID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		return
+	}
+
+	category, err := getCategoryByID(dbx, targetItem.CategoryID)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
+		return
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -1554,10 +1596,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		CategoryID  int    `json:"category_id" db:"category_id"`
 	}
 
-	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id FROM items i where id = ?`
+	queryStr = `SELECT status FROM items where id = ?`
 
-	targetItem := ItemDetail{}
-	err = tx.Get(&targetItem, queryStr, rb.ItemID)
+	var status string
+	err = tx.Get(&status, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1573,35 +1615,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	if targetItem.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
-		tx.Rollback()
-		return
-	}
-
-	if targetItem.SellerID == buyerID {
-		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
-		tx.Rollback()
-		return
-	}
-
-	seller, err := getUserFromCache(tx, targetItem.SellerID)
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		tx.Rollback()
-		return
-	}
-
-	buyer, err := getUserFromCache(tx, buyerID.(int64))
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-		tx.Rollback()
-		return
-	}
-
-	category, err := getCategoryByID(dbx, targetItem.CategoryID)
-	if err != nil {
-		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
 		tx.Rollback()
 		return
 	}
