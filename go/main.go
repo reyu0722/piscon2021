@@ -1519,7 +1519,13 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 	w.Write(shipping.ImgBinary)
 }
 
+var itemBuying map[int64]bool
+
+
 func postBuy(w http.ResponseWriter, r *http.Request) {
+	if itemBuying == nil {
+		itemBuying = make(map[int64]bool)
+	}
 	rb := reqBuy{}
 
 	err := json.NewDecoder(r.Body).Decode(&rb)
@@ -1540,6 +1546,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+	for f, ok := itemBuying[rb.ItemID]; ok && f; {}
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1560,7 +1567,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id
-		FROM items i where id = ? FOR UPDATE
+		FROM items i where id = ?
 	`
 
 	targetItem := ItemDetail{}
