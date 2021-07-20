@@ -1108,7 +1108,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) UNION "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?))  ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) UNION ALL "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?))  ORDER BY created_at DESC, id DESC LIMIT ?",
 			userID,
 			ItemStatusOnSale,
 			ItemStatusTrading,
@@ -1138,7 +1138,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&itemDetailDBs,
-			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) UNION "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?)  ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) UNION ALL "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?)  ORDER BY created_at DESC, id DESC LIMIT ?",
 			userID,
 			ItemStatusOnSale,
 			ItemStatusTrading,
@@ -1305,11 +1305,11 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		s.status as "shipping_status"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
-		left outer join users u2 on u2.id=i.buyer_id
+		left outer join users u2 on u2.id=i.buyer_id and (u.id = ? or u2.id = ?)
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
-	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
+	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID, user.ID, itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1354,7 +1354,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if item.Buyer.ID.Valid && (item.Buyer.ID.Int64 == user.ID || item.Seller.ID.Int64 == user.ID) {
+	if item.Buyer.ID.Valid {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = &UserSimple{
 			ID:           item.BuyerID,
