@@ -1289,11 +1289,14 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	user, err := getUserFromCache(dbx, userID.(int64))
 
 	type ItemDetailDB struct {
 		ID                        int64          `json:"id" db:"id"`
