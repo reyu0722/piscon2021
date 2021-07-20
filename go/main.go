@@ -516,7 +516,7 @@ type UserCached struct {
 func userCacheInitialize() {
 	userCache = map[int64]UserCached{}
 	users := []UserCached{}
-	err := dbx.Select(&users, "SELECT * FROM `users`")
+	err := dbx.Select(&users, "SELECT id, account_name, hashed_password, address FROM `users`")
 	if err != nil {
 		log.Print(err)
 		return
