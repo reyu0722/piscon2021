@@ -1699,7 +1699,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryStr = `SELECT status, price FROM items where id = ?`
+	queryStr = `SELECT status, price FROM items where id = ? FOR UPDATE`
 
 	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
