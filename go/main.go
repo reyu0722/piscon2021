@@ -564,14 +564,26 @@ var itemCache map[int64]ItemCached
 
 func itemCacheInitialize() {
 	itemCache = map[int64]ItemCached{}
-	items := []ItemCached{}
-	err := dbx.Select(&items, "SELECT id, seller_id, name, description, image_name, category_id FROM `items`")
+	items := []Item{}
+	err := dbx.Select(&items, "SELECT id, seller_id, name, description, image_name, category_id, status FROM `items`")
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	for _, item := range items {
-		itemCache[item.ID] = item
+		if item.Status ==  ItemStatusOnSale {
+			itemOnSale[item.ID] = true
+		} else {
+			itemOnSale[item.ID] = false
+		}
+		itemCache[item.ID] = ItemCached {
+			ID:          item.ID,
+			SellerID:    item.SellerID,
+			Name:        item.Name,
+			Description: item.Description,
+			ImageName:   item.ImageName,
+			CategoryID:  item.CategoryID,
+		}
 	}
 }
 
@@ -1578,6 +1590,7 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 }
 
 var itemBuying map[int64]*sync.Mutex
+var itemOnSale map[int64]bool
 
 func postBuy(w http.ResponseWriter, r *http.Request) {
 	if itemBuying == nil {
@@ -1609,11 +1622,15 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		itemBuying[rb.ItemID] = mutex
 	}
 
+	if itemOnSale[rb.ItemID] {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
+		return
+	}
+
 	type ItemData struct {
 		Status string `json:"status" db:"status"`
 		Price  int    `json:"price" db:"price"`
 	}
-
 
 	targetItem, err := getItemCached(dbx, rb.ItemID)
 	if err == sql.ErrNoRows {
@@ -1821,6 +1838,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemOnSale[rb.ItemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
@@ -2451,6 +2469,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
+	itemOnSale[itemID] = true
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resSell{ID: itemID})
