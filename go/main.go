@@ -817,7 +817,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 
 	categoryIDs := []int{}
 	for i := range categoriesCached {
-		if categoriesCached[i].ID == rootCategoryID {
+		if categoriesCached[i].ParentID == rootCategoryID {
 			categoryIDs = append(categoryIDs, i)
 		}
 	}
