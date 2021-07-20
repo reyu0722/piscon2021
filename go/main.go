@@ -911,7 +911,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = dbx.Select(&items, inQuery, inArgs)
+	err = dbx.Select(&items, inQuery, inArgs...)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
