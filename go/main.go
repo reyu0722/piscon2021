@@ -1864,8 +1864,24 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := Item{}
-	err = tx.Get(&item, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	type ItemDetailDB struct {
+		Status                    string         `json:"status" db:"status"`
+		TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+		TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+		ReserveID                 sql.NullString `json:"reserve_id" db:"reserve_id"`
+	}
+
+	queryStr := `SELECT i.status, 
+		t.id as "transaction_evidence_id",
+		t.status as "transaction_evidence_status",
+		s.reserve_id as "reserve_id"
+		FROM items i 
+		left outer join transaction_evidences t on t.item_id=i.id
+		left outer join shippings s on s.transaction_evidence_id=t.id 
+	`
+
+	item := ItemDetailDB{}
+	err = tx.Get(&item, queryStr+"WHERE `id` = ? FOR UPDATE", itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1884,47 +1900,31 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `id` = ? FOR UPDATE", transactionEvidence.ID)
-	if err == sql.ErrNoRows {
+	if !item.TransactionEvidenceID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "transaction_evidences not found")
 		tx.Rollback()
 		return
 	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
 
-	if transactionEvidence.Status != TransactionEvidenceStatusWaitShipping {
+	if item.TransactionEvidenceStatus.String != TransactionEvidenceStatusWaitShipping {
 		outputErrorMsg(w, http.StatusForbidden, "準備ができていません")
 		tx.Rollback()
 		return
 	}
 
-	shipping := Shipping{}
-	err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", transactionEvidence.ID)
-	if err == sql.ErrNoRows {
+	if !item.ReserveID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "shippings not found")
-		tx.Rollback()
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
 	}
 
 	img, err := APIShipmentRequest(getShipmentServiceURL(), &APIShipmentRequestReq{
-		ReserveID: shipping.ReserveID,
+		ReserveID: item.ReserveID.String,
 	})
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
 		tx.Rollback()
-
 		return
 	}
 
@@ -1946,7 +1946,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 
 	rps := resPostShip{
 		Path:      fmt.Sprintf("/transactions/%d.png", transactionEvidence.ID),
-		ReserveID: shipping.ReserveID,
+		ReserveID: item.ReserveID.String,
 	}
 	json.NewEncoder(w).Encode(rps)
 }
