@@ -852,7 +852,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	`
 
 	var inQuery string
-	var inArgs interface{}
+	var inArgs []interface{}
 
 	items := []ItemDetailDB{}
 	if itemID > 0 && createdAt > 0 {
