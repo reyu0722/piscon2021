@@ -1628,7 +1628,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		itemBuying[rb.ItemID] = mutex
 	}
 
-	if itemOnSale[rb.ItemID] {
+	if !itemOnSale[rb.ItemID] {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
