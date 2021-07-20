@@ -516,7 +516,7 @@ type UserCached struct {
 func userCacheInitialize() {
 	userCache = map[int64]UserCached{}
 	users := []UserCached{}
-	err := dbx.Select(&users, "SELECT id, account_name, hashed_password, address FROM `users`")
+	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
 		log.Print(err)
 		return
@@ -564,27 +564,14 @@ var itemCache map[int64]ItemCached
 
 func itemCacheInitialize() {
 	itemCache = map[int64]ItemCached{}
-	itemOnSale = map[int64]bool{}
-	items := []Item{}
-	err := dbx.Select(&items, "SELECT id, seller_id, name, description, image_name, category_id, status FROM `items`")
+	items := []ItemCached{}
+	err := dbx.Select(&items, "SELECT id, seller_id, name, description, image_name, category_id FROM `items`")
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	for _, item := range items {
-		if item.Status ==  ItemStatusOnSale {
-			itemOnSale[item.ID] = true
-		} else {
-			itemOnSale[item.ID] = false
-		}
-		itemCache[item.ID] = ItemCached {
-			ID:          item.ID,
-			SellerID:    item.SellerID,
-			Name:        item.Name,
-			Description: item.Description,
-			ImageName:   item.ImageName,
-			CategoryID:  item.CategoryID,
-		}
+		itemCache[item.ID] = item
 	}
 }
 
@@ -594,25 +581,12 @@ func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
 	}
 	item, ok := itemCache[id]
 	if !ok {
-		itemDb := Item{}
-		err := sqlx.Get(q, &itemDb, "SELECT id, seller_id, name, description, image_name, category_id, status FROM `items` WHERE `id` = ?", id)
+		err := sqlx.Get(q, &item, "SELECT id, seller_id, name, description, image_name, category_id FROM `items` WHERE `id` = ?", id)
 		if err != nil {
 			log.Print(err)
 			return item, err
 		}
-		itemCache[id] = ItemCached {
-			ID:          itemDb.ID,
-			SellerID:    itemDb.SellerID,
-			Name:        itemDb.Name,
-			Description: itemDb.Description,
-			ImageName:   itemDb.ImageName,
-			CategoryID:  itemDb.CategoryID,
-		}
-		if itemDb.Status ==  ItemStatusOnSale {
-			itemOnSale[item.ID] = true
-		} else {
-			itemOnSale[item.ID] = false
-		}
+		itemCache[id] = item
 		return item, nil
 	} else {
 		return item, nil
@@ -628,11 +602,6 @@ func addItemCache(item Item) {
 			Description: item.Description,
 			ImageName:   item.ImageName,
 			CategoryID:  item.CategoryID,
-		}
-		if item.Status ==  ItemStatusOnSale {
-			itemOnSale[item.ID] = true
-		} else {
-			itemOnSale[item.ID] = false
 		}
 	}
 }
@@ -1609,7 +1578,6 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 }
 
 var itemBuying map[int64]*sync.Mutex
-var itemOnSale map[int64]bool
 
 func postBuy(w http.ResponseWriter, r *http.Request) {
 	if itemBuying == nil {
@@ -1646,15 +1614,8 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Price  int    `json:"price" db:"price"`
 	}
 
-	queryStr := `SELECT status FROM items where id = ?`
-	var status string
+
 	targetItem, err := getItemCached(dbx, rb.ItemID)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-	err = dbx.Get(&status, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1662,11 +1623,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-
-	if status != ItemStatusOnSale {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
 
@@ -1683,11 +1639,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	if targetItem.SellerID == buyerID {
-		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
-		return
-	}
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -1699,7 +1650,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryStr = `SELECT status, price FROM items where id = ? FOR UPDATE`
+	queryStr := `SELECT status, price FROM items where id = ?`
 
 	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
@@ -1721,15 +1672,22 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+	if targetItem.SellerID == buyerID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		tx.Rollback()
+		return
+	}
 	seller, err := getUserFromCache(dbx, targetItem.SellerID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		tx.Rollback()
 		return
 	}
 
 	buyer, err := getUserFromCache(dbx, buyerID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		tx.Rollback()
 		return
 	}
 
@@ -1737,6 +1695,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
+		tx.Rollback()
 		return
 	}
 
@@ -2457,7 +2416,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Print(err)
-		tx.Rollback()
+
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -2465,7 +2424,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	itemID, err := result.LastInsertId()
 	if err != nil {
 		log.Print(err)
-		tx.Rollback()
+
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -2487,7 +2446,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Print(err)
-		tx.Rollback()
+
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
