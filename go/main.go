@@ -1877,11 +1877,13 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 
 	if !item.TransactionEvidenceID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "transaction_evidences not found")
+		tx.Rollback()
 		return
 	}
 
 	if item.TransactionEvidenceSellerID.Int64 != seller.ID {
 		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
+		tx.Rollback()
 		return
 	}
 
