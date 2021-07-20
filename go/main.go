@@ -594,12 +594,25 @@ func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
 	}
 	item, ok := itemCache[id]
 	if !ok {
-		err := sqlx.Get(q, &item, "SELECT id, seller_id, name, description, image_name, category_id FROM `items` WHERE `id` = ?", id)
+		itemDb := Item{}
+		err := sqlx.Get(q, &itemDb, "SELECT id, seller_id, name, description, image_name, category_id, status FROM `items` WHERE `id` = ?", id)
 		if err != nil {
 			log.Print(err)
 			return item, err
 		}
-		itemCache[id] = item
+		itemCache[id] = ItemCached {
+			ID:          itemDb.ID,
+			SellerID:    itemDb.SellerID,
+			Name:        itemDb.Name,
+			Description: itemDb.Description,
+			ImageName:   itemDb.ImageName,
+			CategoryID:  itemDb.CategoryID,
+		}
+		if itemDb.Status ==  ItemStatusOnSale {
+			itemOnSale[item.ID] = true
+		} else {
+			itemOnSale[item.ID] = false
+		}
 		return item, nil
 	} else {
 		return item, nil
