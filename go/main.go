@@ -1881,7 +1881,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	`
 
 	item := ItemDetailDB{}
-	err = tx.Get(&item, queryStr+"WHERE `id` = ? FOR UPDATE", itemID)
+	err = tx.Get(&item, queryStr+"WHERE i.id = ? FOR UPDATE", itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
