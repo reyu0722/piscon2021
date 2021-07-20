@@ -1616,8 +1616,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	queryStr := `SELECT * FROM items where id = ?`
 
-	targetItem := Item{}
-	err = dbx.Get(&targetItem, queryStr, rb.ItemID)
+	targetItem, err := getItemCached(dbx, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1625,11 +1624,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-
-	if targetItem.Status != ItemStatusOnSale {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
 
@@ -1645,11 +1639,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	*/
-
-	if targetItem.SellerID == buyerID {
-		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
-		return
-	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -1682,6 +1671,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if itemData.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		tx.Rollback()
+		return
+	}
+	if targetItem.SellerID == buyerID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		return
 	}
 	seller, err := getUserFromCache(dbx, targetItem.SellerID)
