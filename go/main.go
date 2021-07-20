@@ -2434,7 +2434,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Print(err)
-
+		tx.Rollback()
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -2442,7 +2442,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	itemID, err := result.LastInsertId()
 	if err != nil {
 		log.Print(err)
-
+		tx.Rollback()
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -2464,7 +2464,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Print(err)
-
+		tx.Rollback()
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
