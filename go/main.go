@@ -1641,15 +1641,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		itemBuying[rb.ItemID] = mutex
 	}
 
-	if !itemOnSale[rb.ItemID] {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
-		return
-	}
-
 	type ItemData struct {
 		Status string `json:"status" db:"status"`
 		Price  int    `json:"price" db:"price"`
 	}
+
 
 	targetItem, err := getItemCached(dbx, rb.ItemID)
 	if err == sql.ErrNoRows {
@@ -1857,7 +1853,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemOnSale[rb.ItemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
