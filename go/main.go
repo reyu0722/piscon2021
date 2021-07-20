@@ -1986,7 +1986,6 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 
 	if csrfToken != getCSRFToken(r) {
 		outputErrorMsg(w, http.StatusUnprocessableEntity, "csrf token error")
-
 		return
 	}
 
@@ -2035,11 +2034,13 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 
 	if !item.TransactionEvidenceID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "transaction_evidence not found")
+		tx.Rollback()
 		return
 	}
 
 	if item.TransactionEvidenceSellerID.Int64 != seller.ID {
 		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
+		tx.Rollback()
 		return
 	}
 
