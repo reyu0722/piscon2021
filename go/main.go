@@ -615,6 +615,11 @@ func addItemCache(item Item) {
 			ImageName:   item.ImageName,
 			CategoryID:  item.CategoryID,
 		}
+		if item.Status ==  ItemStatusOnSale {
+			itemOnSale[item.ID] = true
+		} else {
+			itemOnSale[item.ID] = false
+		}
 	}
 }
 
@@ -2469,7 +2474,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
-	itemOnSale[itemID] = true
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resSell{ID: itemID})
