@@ -815,6 +815,13 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	categoryIDs := []int{}
+	for i := range categoriesCached {
+		if categoriesCached[i].ID == rootCategoryID {
+			categoryIDs = append(categoryIDs, i)
+		}
+	}
+
 	query := r.URL.Query()
 	itemIDStr := query.Get("item_id")
 	var itemID int64
@@ -842,33 +849,37 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		u.num_sell_items as "seller.num_sell_items"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id
-		inner join categories c on c.id=i.category_id and c.parent_id=? 
 	`
+
+	var inQuery string
+	var inArgs interface{}
 
 	items := []ItemDetailDB{}
 	if itemID > 0 && createdAt > 0 {
 		// paging
-		err := dbx.Select(&items, queryStr+"WHERE i.status IN (?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
-			rootCategoryID,
-			ItemStatusOnSale,
-			ItemStatusSoldOut,
-			time.Unix(createdAt, 0),
-			time.Unix(createdAt, 0),
-			itemID,
-			ItemsPerPage+1,
-		)
 		/*
-			inQuery, inArgs, err = sqlx.In(
-				queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			err := dbx.Select(&items, queryStr+"WHERE i.status IN (?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+				rootCategoryID,
 				ItemStatusOnSale,
 				ItemStatusSoldOut,
-				categoryIDs,
 				time.Unix(createdAt, 0),
 				time.Unix(createdAt, 0),
 				itemID,
 				ItemsPerPage+1,
 			)
 		*/
+
+		inQuery, inArgs, err = sqlx.In(
+			queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			ItemStatusOnSale,
+			ItemStatusSoldOut,
+			categoryIDs,
+			time.Unix(createdAt, 0),
+			time.Unix(createdAt, 0),
+			itemID,
+			ItemsPerPage+1,
+		)
+
 		if err != nil {
 			log.Print(err)
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
@@ -876,11 +887,22 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// 1st page
-		err = dbx.Select(&items,
-			queryStr+"WHERE i.status IN (?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
-			rootCategoryID,
+		/*
+			err = dbx.Select(&items,
+				queryStr+"WHERE i.status IN (?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
+				rootCategoryID,
+				ItemStatusOnSale,
+				ItemStatusSoldOut,
+				ItemsPerPage+1,
+			)
+		*/
+
+		inQuery, inArgs, err = sqlx.In(
+			queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
+			categoryIDs,
+			itemID,
 			ItemsPerPage+1,
 		)
 		if err != nil {
@@ -888,6 +910,13 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
 			return
 		}
+	}
+
+	err = dbx.Select(&items, inQuery, inArgs)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
 	}
 
 	itemSimples := []ItemSimple{}
