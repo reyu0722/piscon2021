@@ -1675,17 +1675,20 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		tx.Rollback()
 		return
 	}
 	seller, err := getUserFromCache(dbx, targetItem.SellerID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		tx.Rollback()
 		return
 	}
 
 	buyer, err := getUserFromCache(dbx, buyerID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		tx.Rollback()
 		return
 	}
 
@@ -1693,6 +1696,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
+		tx.Rollback()
 		return
 	}
 
