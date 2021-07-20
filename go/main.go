@@ -1832,27 +1832,17 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
 
-	transactionEvidence := TransactionEvidence{}
-	err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", itemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "transaction_evidences not found")
-		return
-	}
+	seller, err := getUserFromCache(dbx, userID.(int64))
 	if err != nil {
-		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-
-		return
-	}
-
-	if transactionEvidence.SellerID != seller.ID {
-		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
 		return
 	}
 
@@ -1865,15 +1855,17 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ItemDetailDB struct {
-		Status                    string         `json:"status" db:"status"`
-		TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
-		TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
-		ReserveID                 sql.NullString `json:"reserve_id" db:"reserve_id"`
+		Status                      string         `json:"status" db:"status"`
+		TransactionEvidenceID       sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+		TransactionEvidenceStatus   sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+		TransactionEvidenceSellerID sql.NullInt64  `json:"transaction_evidence_seller_id" db:"transaction_evidence_seller_id"`
+		ReserveID                   sql.NullString `json:"reserve_id" db:"reserve_id"`
 	}
 
 	queryStr := `SELECT i.status, 
 		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence_status",
+		t.seller_id as "transaction_evidence_seller_id",
 		s.reserve_id as "reserve_id"
 		FROM items i 
 		left outer join transaction_evidences t on t.item_id=i.id
@@ -1882,6 +1874,17 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 
 	item := ItemDetailDB{}
 	err = tx.Get(&item, queryStr+"WHERE i.id = ? FOR UPDATE", itemID)
+
+	if !item.TransactionEvidenceID.Valid {
+		outputErrorMsg(w, http.StatusNotFound, "transaction_evidences not found")
+		return
+	}
+
+	if item.TransactionEvidenceSellerID.Int64 != seller.ID {
+		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
+		return
+	}
+
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1932,7 +1935,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		ShippingsStatusWaitPickup,
 		img,
 		time.Now(),
-		transactionEvidence.ID,
+		item.TransactionEvidenceID.Int64,
 	)
 	if err != nil {
 		log.Print(err)
@@ -1945,7 +1948,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	tx.Commit()
 
 	rps := resPostShip{
-		Path:      fmt.Sprintf("/transactions/%d.png", transactionEvidence.ID),
+		Path:      fmt.Sprintf("/transactions/%d.png", item.TransactionEvidenceID.Int64),
 		ReserveID: item.ReserveID.String,
 	}
 	json.NewEncoder(w).Encode(rps)
