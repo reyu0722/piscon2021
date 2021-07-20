@@ -1639,8 +1639,8 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	// mutex.Lock()
-	// defer mutex.Unlock()
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1650,7 +1650,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryStr := `SELECT status, price FROM items where id = ? FOR UPDATE`
+	queryStr := `SELECT status, price FROM items where id = ?`
 
 	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
