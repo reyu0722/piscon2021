@@ -841,13 +841,15 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		u.account_name as "seller.account_name",
 		u.num_sell_items as "seller.num_sell_items"
 		FROM items i 
-		left outer join users u on u.id=i.seller_id 
+		left outer join users u on u.id=i.seller_id
+		inner join categories c on c.id=i.category_id and c.parent_id=? 
 	`
 
 	items := []ItemDetailDB{}
 	if itemID > 0 && createdAt > 0 {
 		// paging
-		err := dbx.Select(&items, queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (SELECT id FROM `categories` WHERE parent_id=?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+		err := dbx.Select(&items, queryStr+"WHERE i.status IN (?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			rootCategoryID,
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			rootCategoryID,
@@ -876,10 +878,10 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err = dbx.Select(&items,
-			queryStr+"WHERE i.status IN (?,?) AND i.category_id IN (SELECT id FROM `categories` WHERE parent_id=?) ORDER BY created_at DESC, id DESC LIMIT ?",
+			queryStr+"WHERE i.status IN (?,?) ORDER BY created_at DESC, id DESC LIMIT ?",
+			rootCategoryID,
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
-			rootCategoryID,
 			ItemsPerPage+1,
 		)
 		if err != nil {
