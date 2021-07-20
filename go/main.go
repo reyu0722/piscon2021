@@ -564,6 +564,7 @@ var itemCache map[int64]ItemCached
 
 func itemCacheInitialize() {
 	itemCache = map[int64]ItemCached{}
+	itemOnSale = map[int64]bool{}
 	items := []Item{}
 	err := dbx.Select(&items, "SELECT id, seller_id, name, description, image_name, category_id, status FROM `items`")
 	if err != nil {
