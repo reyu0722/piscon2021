@@ -1614,7 +1614,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Price  int    `json:"price" db:"price"`
 	}
 
-	queryStr := `SELECT * FROM items where id = ?`
 
 	targetItem, err := getItemCached(dbx, rb.ItemID)
 	if err == sql.ErrNoRows {
@@ -1640,8 +1639,8 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	mutex.Lock()
-	defer mutex.Unlock()
+	// mutex.Lock()
+	// defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1651,7 +1650,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryStr = `SELECT status, price FROM items where id = ?`
+	queryStr := `SELECT status, price FROM items where id = ? FOR UODATE`
 
 	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
