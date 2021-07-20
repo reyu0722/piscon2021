@@ -852,7 +852,6 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			rootCategoryID,
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
-			rootCategoryID,
 			time.Unix(createdAt, 0),
 			time.Unix(createdAt, 0),
 			itemID,
