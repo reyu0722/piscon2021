@@ -1305,7 +1305,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		s.status as "shipping_status"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
-		left outer join users u2 on u2.id=i.buyer_id and (u.id = ? or u2.id = ?)
+		left outer join users u2 on u2.id=i.buyer_id
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
@@ -1354,7 +1354,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if item.Buyer.ID.Valid {
+	if item.Buyer.ID.Valid && (item.Buyer.ID.Int64 == user.ID || item.Seller.ID.Int64 == user.ID) {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = &UserSimple{
 			ID:           item.BuyerID,
