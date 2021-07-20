@@ -1646,8 +1646,15 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		Price  int    `json:"price" db:"price"`
 	}
 
-
+	queryStr := `SELECT status FROM items where id = ?`
+	var status string
 	targetItem, err := getItemCached(dbx, rb.ItemID)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	err = dbx.Get(&status, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1655,6 +1662,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		return
 	}
 
@@ -1671,6 +1683,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
+	if targetItem.SellerID == buyerID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		return
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -1682,7 +1699,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryStr := `SELECT status, price FROM items where id = ?`
+	queryStr = `SELECT status, price FROM items where id = ?`
 
 	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
@@ -1704,22 +1721,15 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	if targetItem.SellerID == buyerID {
-		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
-		tx.Rollback()
-		return
-	}
 	seller, err := getUserFromCache(dbx, targetItem.SellerID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		tx.Rollback()
 		return
 	}
 
 	buyer, err := getUserFromCache(dbx, buyerID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-		tx.Rollback()
 		return
 	}
 
@@ -1727,7 +1737,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
-		tx.Rollback()
 		return
 	}
 
