@@ -902,7 +902,6 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
-			itemID,
 			ItemsPerPage+1,
 		)
 		if err != nil {
