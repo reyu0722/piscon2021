@@ -1427,11 +1427,20 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	seller, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 
 	targetItem := Item{}
 	err = dbx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ?", itemID)
@@ -1513,11 +1522,20 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	seller, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 
 	transactionEvidence := TransactionEvidence{}
 	err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `id` = ?", transactionEvidenceID)
@@ -1974,11 +1992,20 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	seller, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 
 	transactionEvidence := TransactionEvidence{}
 	err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", itemID)
@@ -2126,11 +2153,20 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buyer, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	buyer, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 
 	transactionEvidence := TransactionEvidence{}
 	err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", itemID)
@@ -2318,11 +2354,20 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	user, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 
 	img, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -2447,11 +2492,20 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, errCode, errMsg := getUser(r)
-	if errMsg != "" {
-		outputErrorMsg(w, errCode, errMsg)
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+
+	if !ok {
+		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+
+	user, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 
 	tx, err := dbx.Beginx()
 	if err != nil {
