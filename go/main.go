@@ -2398,6 +2398,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
+	log.Print(userID.(int64))
 
 	user, err := getUserFromCache(dbx, userID.(int64))
 	if err != nil {
