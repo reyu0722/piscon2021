@@ -343,7 +343,7 @@ func main() {
 	mux := goji.NewMux()
 
 	if itemAllCache == nil {
-		itemAllCache = make(map[int64]ItemDetailDB)
+		itemAllCache = make(map[int64]*ItemDetailDB)
 	}
 	if itemAllCacheAble == nil {
 		itemAllCacheAble = make(map[int64]bool)
@@ -494,7 +494,7 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	}
 }
 
-var userCache map[int64]UserCached
+var userCache map[int64]*UserCached
 
 type UserCached struct {
 	ID             int64  `json:"id" db:"id"`
@@ -504,7 +504,7 @@ type UserCached struct {
 }
 
 func userCacheInitialize() {
-	userCache = map[int64]UserCached{}
+	userCache = map[int64]*UserCached{}
 	users := []UserCached{}
 	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
@@ -512,11 +512,11 @@ func userCacheInitialize() {
 		return
 	}
 	for _, user := range users {
-		userCache[user.ID] = user
+		userCache[user.ID] = &user
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
+func getUserFromCache(q sqlx.Queryer, id int64) (*UserCached, error) {
 	user, ok := userCache[id]
 	if !ok {
 		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address FROM `users` WHERE `id` = ?", id)
@@ -532,7 +532,7 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 }
 func addUserCache(user User) {
 	if _, ok := userCache[user.ID]; !ok {
-		userCache[user.ID] = UserCached{
+		userCache[user.ID] = &UserCached{
 			ID:             user.ID,
 			AccountName:    user.AccountName,
 			HashedPassword: user.HashedPassword,
@@ -1322,7 +1322,7 @@ type ItemDetailDB struct {
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
 
-var itemAllCache map[int64]ItemDetailDB
+var itemAllCache map[int64]*ItemDetailDB
 var itemAllCacheAble map[int64]bool
 
 // var userSimpleCache map[int64]UserSimple
@@ -1374,14 +1374,14 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	/*
-	itemAllCache[item.ID] = item
+
+	itemAllCache[item.ID] = &item
 	itemAllCacheAble[item.ID] = true
 	userSimpleCacheAble[item.SellerID] = true
 	if !item.Buyer.ID.Valid {
 		userSimpleCacheAble[item.BuyerID] = true
 	}
-	*/
+
 	//}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
