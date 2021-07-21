@@ -409,8 +409,6 @@ func main() {
 	}
 
 	log.Fatal(http.Serve(listener, mux))
-
-	// log.Fatal(http.ListenAndServe("./tmp/isucari.sock", mux))
 }
 
 func getSession(r *http.Request) *sessions.Session {
@@ -428,25 +426,6 @@ func getCSRFToken(r *http.Request) string {
 	}
 
 	return csrfToken.(string)
-}
-
-func getUser(r *http.Request) (user User, errCode int, errMsg string) {
-	session := getSession(r)
-	userID, ok := session.Values["user_id"]
-	if !ok {
-		return user, http.StatusNotFound, "no session"
-	}
-
-	err := dbx.Get(&user, "SELECT * FROM `users` WHERE `id` = ?", userID)
-	if err == sql.ErrNoRows {
-		return user, http.StatusNotFound, "user not found"
-	}
-	if err != nil {
-		log.Print(err)
-		return user, http.StatusInternalServerError, "db error"
-	}
-
-	return user, http.StatusOK, ""
 }
 
 func getUserSimpleByID(q sqlx.Queryer, userID int64) (UserSimple, error) {
@@ -481,23 +460,6 @@ func getCategories() error {
 }
 
 func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
-	/*
-		type CategoryDB struct {
-			ID                 int            `json:"id" db:"id"`
-			ParentID           int            `json:"parent_id" db:"parent_id"`
-			CategoryName       string         `json:"category_name" db:"category_name"`
-			ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
-		}
-		categoryDB := CategoryDB{}
-		err := sqlx.Get(q, &categoryDB, "SELECT c.*, c2.category_name as parent_category_name FROM categories c left outer JOIN categories c2 on c.parent_id=c2.id WHERE c.id = ?", categoryID)
-		category := Category{
-			ID:                 categoryDB.ID,
-			ParentID:           categoryDB.ParentID,
-			CategoryName:       categoryDB.CategoryName,
-			ParentCategoryName: categoryDB.ParentCategoryName.String,
-		}
-		return category, err
-	*/
 	if categoriesCached == nil {
 		err := getCategories()
 		if err != nil {
@@ -1141,13 +1103,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tx, err := dbx.Beginx()
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
 	itemDetailDBs := []ItemDetailDB{}
 	queryStr := `SELECT i.*, 
 		u.id as "seller.id",
@@ -1168,7 +1123,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 	if itemID > 0 && createdAt > 0 {
 		// paging
-		err := tx.Select(&itemDetailDBs,
+		err := dbx.Select(&itemDetailDBs,
 			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) UNION ALL "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?) AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?))  ORDER BY created_at DESC, id DESC LIMIT ?",
 			userID,
 			ItemStatusOnSale,
@@ -1193,12 +1148,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Print(err)
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
 			return
 		}
 	} else {
 		// 1st page
-		err := tx.Select(&itemDetailDBs,
+		err := dbx.Select(&itemDetailDBs,
 			queryStr+"WHERE i.seller_id = ? AND i.status IN (?,?,?,?,?) UNION ALL "+queryStr+"WHERE i.buyer_id = ? AND i.status IN (?,?,?,?,?)  ORDER BY created_at DESC, id DESC LIMIT ?",
 			userID,
 			ItemStatusOnSale,
@@ -1217,7 +1171,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Print(err)
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
 			return
 		}
 	}
@@ -1236,13 +1189,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 		if !item.Seller.ID.Valid {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
-			tx.Rollback()
 			return
 		}
-		category, err := getCategoryByID(tx, item.CategoryID)
+		category, err := getCategoryByID(dbx, item.CategoryID)
 		if err != nil {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
-			tx.Rollback()
 			return
 		}
 
@@ -1287,7 +1238,6 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		if item.BuyerID != 0 {
 			if !item.Buyer.ID.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-				tx.Rollback()
 				return
 			}
 
@@ -1302,13 +1252,11 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		if item.TransactionEvidenceID.Int64 > 0 {
 			if !item.ShippingStatus.Valid {
 				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
-				tx.Rollback()
 				return
 			}
 			itemDetails[i].ShippingStatus = item.ShippingStatus.String
 		}
 	}
-	tx.Commit()
 
 	rts := resTransactions{
 		Items:   itemDetails,
@@ -2683,12 +2631,19 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	csrfToken := getCSRFToken(r)
 
-	user, _, errMsg := getUser(r)
-
 	ress := resSetting{}
 	ress.CSRFToken = csrfToken
-	if errMsg == "" {
-		ress.User = &user
+
+	session := getSession(r)
+	userID, ok := session.Values["user_id"]
+	user := User{}
+	if ok {
+		err := dbx.Get(&user, "SELECT * FROM `users` WHERE `id` = ?", userID)
+		if err != nil {
+			log.Print(err)
+		} else {
+			ress.User = &user
+		}
 	}
 
 	ress.PaymentServiceURL = getPaymentServiceURL()
