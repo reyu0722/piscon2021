@@ -1616,34 +1616,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	queryStr := `SELECT status, price FROM items where id = ?`
 
-	itemData := ItemData{}
-	err = dbx.Get(&itemData, queryStr, rb.ItemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
 
-	if itemData.Status != ItemStatusOnSale {
-		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
-		return
-	}
-
-
-	targetItem, err := getItemCached(dbx, rb.ItemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
 
 	/*
 		targetItem, err := getItemCached(dbx, rb.ItemID)
@@ -1670,7 +1643,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-
+	itemData := ItemData{}
 	err = tx.Get(&itemData, queryStr, rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
@@ -1680,6 +1653,18 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+	targetItem, err := getItemCached(dbx, rb.ItemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		tx.Rollback()
+		return
+	}
+	if err != nil {
+		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
