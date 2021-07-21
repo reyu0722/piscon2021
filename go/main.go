@@ -1332,9 +1332,9 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	// user, err := getUserFromCache(dbx, userID.(int64))
 
 	//item, ok := itemAllCache[itemID]
-	var item ItemDetailDB
+	item := ItemDetailDB{}
 	//if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
-		queryStr := `SELECT i.*, 
+	queryStr := `SELECT i.*, 
 			u.id as "seller.id",
 			u.account_name as "seller.account_name",
 			u.num_sell_items as "seller.num_sell_items",
@@ -1350,22 +1350,22 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 			left outer join transaction_evidences t on t.item_id=i.id
 			left outer join shippings s on s.transaction_evidence_id=t.id 
 		`
-		err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
-		if err == sql.ErrNoRows {
-			outputErrorMsg(w, http.StatusNotFound, "item not found")
-			return
-		}
-		if err != nil {
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			return
-		}
-		itemAllCache[item.ID] = item
-		itemAllCacheAble[item.ID] = true
-		userSimpleCacheAble[item.SellerID] = true
-		if !item.Buyer.ID.Valid {
-			userSimpleCacheAble[item.BuyerID] = true
-		}
+	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	itemAllCache[item.ID] = item
+	itemAllCacheAble[item.ID] = true
+	userSimpleCacheAble[item.SellerID] = true
+	if !item.Buyer.ID.Valid {
+		userSimpleCacheAble[item.BuyerID] = true
+	}
 	//}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
