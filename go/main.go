@@ -118,25 +118,6 @@ type CategoryDB struct {
 	ParentCategoryName sql.NullString `json:"parent_category_name,omitempty" db:"parent_category_name"`
 }
 
-type ItemDetailDB struct {
-	ID                        int64          `json:"id" db:"id"`
-	SellerID                  int64          `json:"seller_id" db:"seller_id"`
-	Seller                    *UserSimpleDB  `json:"seller" db:"seller"`
-	BuyerID                   int64          `json:"buyer_id,omitempty" db:"buyer_id"`
-	Buyer                     *UserSimpleDB  `json:"buyer,omitempty" db:"buyer"`
-	Status                    string         `json:"status" db:"status"`
-	Name                      string         `json:"name" db:"name"`
-	Price                     int            `json:"price" db:"price"`
-	Description               string         `json:"description" db:"description"`
-	ImageName                 string         `json:"image_name" db:"image_name"`
-	CategoryID                int            `json:"category_id" db:"category_id"`
-	TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
-	TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
-	ShippingStatus            sql.NullString `json:"shipping_status" db:"shipping_status"`
-	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
-}
-
 type ItemSimple struct {
 	ID         int64       `json:"id"`
 	SellerID   int64       `json:"seller_id"`
@@ -1074,6 +1055,24 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTransactions(w http.ResponseWriter, r *http.Request) {
+	type ItemDetailDB struct {
+		ID                        int64          `json:"id" db:"id"`
+		SellerID                  int64          `json:"seller_id" db:"seller_id"`
+		Seller                    *UserSimpleDB  `json:"seller" db:"seller"`
+		BuyerID                   int64          `json:"buyer_id,omitempty" db:"buyer_id"`
+		Buyer                     *UserSimpleDB  `json:"buyer,omitempty" db:"buyer"`
+		Status                    string         `json:"status" db:"status"`
+		Name                      string         `json:"name" db:"name"`
+		Price                     int            `json:"price" db:"price"`
+		Description               string         `json:"description" db:"description"`
+		ImageName                 string         `json:"image_name" db:"image_name"`
+		CategoryID                int            `json:"category_id" db:"category_id"`
+		TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+		TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+		ShippingStatus            sql.NullString `json:"shipping_status" db:"shipping_status"`
+		CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
+		UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
+	}
 	session := getSession(r)
 	userID, ok := session.Values["user_id"]
 	if !ok {
@@ -1281,7 +1280,42 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rts)
 }
 
+type ItemDetailDB struct {
+	ID                        int64          `json:"id" db:"id"`
+	SellerID                  int64          `json:"seller_id" db:"seller_id"`
+	Seller                    *UserSimpleDB  `json:"seller" db:"seller"`
+	BuyerID                   int64          `json:"buyer_id,omitempty" db:"buyer_id"`
+	Buyer                     *UserSimpleDB  `json:"buyer,omitempty" db:"buyer"`
+	Status                    string         `json:"status" db:"status"`
+	Name                      string         `json:"name" db:"name"`
+	Price                     int            `json:"price" db:"price"`
+	Description               string         `json:"description" db:"description"`
+	ImageName                 string         `json:"image_name" db:"image_name"`
+	CategoryID                int            `json:"category_id" db:"category_id"`
+	TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
+	TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
+	ShippingStatus            sql.NullString `json:"shipping_status" db:"shipping_status"`
+	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
+}
+
+var itemAllCache map[int64]ItemDetailDB
+var itemAllCacheAble map[int64]bool
+
+// var userSimpleCache map[int64]UserSimple
+var userSimpleCacheAble map[int64]bool
+
 func getItem(w http.ResponseWriter, r *http.Request) {
+	if itemAllCache == nil {
+		itemAllCache = make(map[int64]ItemDetailDB)
+	}
+	if itemAllCacheAble == nil {
+		itemAllCacheAble = make(map[int64]bool)
+	}
+	if userSimpleCacheAble == nil {
+		userSimpleCacheAble = make(map[int64]bool)
+	}
+
 	itemIDStr := pat.Param(r, "item_id")
 	itemID, err := strconv.ParseInt(itemIDStr, 10, 64)
 	if err != nil || itemID <= 0 {
@@ -1298,28 +1332,9 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 	user, err := getUserFromCache(dbx, userID.(int64))
 
-	type ItemDetailDB struct {
-		ID                        int64          `json:"id" db:"id"`
-		SellerID                  int64          `json:"seller_id" db:"seller_id"`
-		Seller                    *UserSimpleDB  `json:"seller" db:"seller"`
-		BuyerID                   int64          `json:"buyer_id,omitempty" db:"buyer_id"`
-		Buyer                     *UserSimpleDB  `json:"buyer,omitempty" db:"buyer"`
-		Status                    string         `json:"status" db:"status"`
-		Name                      string         `json:"name" db:"name"`
-		Price                     int            `json:"price" db:"price"`
-		Description               string         `json:"description" db:"description"`
-		ImageName                 string         `json:"image_name" db:"image_name"`
-		CategoryID                int            `json:"category_id" db:"category_id"`
-		TransactionEvidenceID     sql.NullInt64  `json:"transaction_evidence_id,omitempty" db:"transaction_evidence_id"`
-		TransactionEvidenceStatus sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
-		ShippingStatus            sql.NullString `json:"shipping_status" db:"shipping_status"`
-		CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
-		UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
-	}
-
-	item := ItemDetailDB{}
-
-	queryStr := `SELECT i.*, 
+	item, ok := itemAllCache[itemID]
+	if !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || !(item.BuyerID == 0 || userSimpleCacheAble[item.BuyerID]) {
+		queryStr := `SELECT i.*, 
 		u.id as "seller.id",
 		u.account_name as "seller.account_name",
 		u.num_sell_items as "seller.num_sell_items",
@@ -1331,19 +1346,26 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		s.status as "shipping_status"
 		FROM items i 
 		left outer join users u on u.id=i.seller_id 
-		left outer join users u2 on u2.id=i.buyer_id and (u.id = ? or u2.id = ?)
+		left outer join users u2 on u2.id=i.buyer_id
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
-	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID, user.ID, itemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
+		err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID, user.ID, itemID)
+		if err == sql.ErrNoRows {
+			outputErrorMsg(w, http.StatusNotFound, "item not found")
+			return
+		}
+		if err != nil {
+			log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		itemAllCache[item.ID] = item
+		itemAllCacheAble[item.ID] = true
+		userSimpleCacheAble[item.SellerID] = true
+		if !item.Buyer.ID.Valid {
+			userSimpleCacheAble[item.BuyerID] = true
+		}
 	}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
@@ -1380,7 +1402,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if item.Buyer.ID.Valid {
+	if item.Buyer.ID.Valid && (userID == item.SellerID || userID == item.BuyerID) {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = &UserSimple{
 			ID:           item.BuyerID,
@@ -1402,6 +1424,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(itemDetail)
+
 }
 
 func postItemEdit(w http.ResponseWriter, r *http.Request) {
@@ -1481,6 +1504,7 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `items` SET `price` = ?, `updated_at` = ? WHERE `id` = ?",
 		price,
 		time.Now(),
@@ -1620,7 +1644,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	queryStr := `SELECT * from items where id = ? FOR UPDATE`
 
 	targetItem := Item{}
@@ -1739,6 +1762,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[targetItem.ID] = false
 	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		buyerID,
 		ItemStatusTrading,
@@ -1932,6 +1956,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `img_binary` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusWaitPickup,
 		img,
@@ -2080,6 +2105,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ssr.Status,
 		time.Now(),
@@ -2093,6 +2119,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		TransactionEvidenceStatusWaitDone,
 		time.Now(),
@@ -2254,6 +2281,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusDone,
 		time.Now(),
@@ -2266,6 +2294,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		TransactionEvidenceStatusDone,
 		time.Now(),
@@ -2279,6 +2308,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		ItemStatusSoldOut,
 		time.Now(),
@@ -2444,6 +2474,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		SellerID:    seller.ID,
 	})
 
+	userSimpleCacheAble[seller.ID] = false
 	now := time.Now()
 	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
 		seller.NumSellItems+1,
@@ -2550,6 +2581,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `items` SET `created_at`=?, `updated_at`=? WHERE id=?",
 		now,
 		now,
