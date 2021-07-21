@@ -1380,7 +1380,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCache[item.ID] = &item
+	// itemAllCache[item.ID] = &item
 	itemAllCacheAble[item.ID] = true
 	userSimpleCacheAble[item.SellerID] = true
 	
