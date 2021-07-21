@@ -681,7 +681,10 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getNewItems(w http.ResponseWriter, r *http.Request) {
@@ -788,7 +791,10 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(rni)
+	err = json.NewEncoder(w).Encode(rni)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
@@ -951,8 +957,10 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(rni)
-
+	err = json.NewEncoder(w).Encode(rni)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getUserItems(w http.ResponseWriter, r *http.Request) {
@@ -1060,7 +1068,10 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(rui)
+	err = json.NewEncoder(w).Encode(rui)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getTransactions(w http.ResponseWriter, r *http.Request) {
@@ -1286,7 +1297,10 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(rts)
+	err = json.NewEncoder(w).Encode(rts)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 type ItemDetailDB struct {
@@ -1532,12 +1546,15 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(&resItemEdit{
+	err = json.NewEncoder(w).Encode(&resItemEdit{
 		ItemID:        targetItem.ID,
 		ItemPrice:     targetItem.Price,
 		ItemCreatedAt: targetItem.CreatedAt.Unix(),
 		ItemUpdatedAt: targetItem.UpdatedAt.Unix(),
 	})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getQRCode(w http.ResponseWriter, r *http.Request) {
@@ -1839,7 +1856,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	itemAllCacheAble[targetItem.ID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
+	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postShip(w http.ResponseWriter, r *http.Request) {
@@ -1983,7 +2003,10 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		Path:      fmt.Sprintf("/transactions/%d.png", item.TransactionEvidenceID.Int64),
 		ReserveID: item.ReserveID.String,
 	}
-	json.NewEncoder(w).Encode(rps)
+	err = json.NewEncoder(w).Encode(rps)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postShipDone(w http.ResponseWriter, r *http.Request) {
@@ -2143,7 +2166,10 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
+	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postComplete(w http.ResponseWriter, r *http.Request) {
@@ -2333,7 +2359,10 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
+	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postSell(w http.ResponseWriter, r *http.Request) {
@@ -2501,7 +2530,10 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	userSimpleCacheAble[seller.ID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(resSell{ID: itemID})
+	err = json.NewEncoder(w).Encode(resSell{ID: itemID})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func secureRandomStr(b int) string {
@@ -2628,12 +2660,15 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(&resItemEdit{
+	err = json.NewEncoder(w).Encode(&resItemEdit{
 		ItemID:        targetItem.ID,
 		ItemPrice:     targetItem.Price,
 		ItemCreatedAt: targetItem.CreatedAt.Unix(),
 		ItemUpdatedAt: targetItem.UpdatedAt.Unix(),
 	})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getSettings(w http.ResponseWriter, r *http.Request) {
@@ -2660,7 +2695,10 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	ress.Categories = categories
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(ress)
+	err = json.NewEncoder(w).Encode(ress)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 var newPasswords map[int64][]byte
@@ -2675,7 +2713,10 @@ func checkUserPassword() {
 }
 
 func getUserPass(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(newPasswords)
+	err := json.NewEncoder(w).Encode(newPasswords)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postLogin(w http.ResponseWriter, r *http.Request) {
@@ -2758,7 +2799,10 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(u)
+	err = json.NewEncoder(w).Encode(u)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postRegister(w http.ResponseWriter, r *http.Request) {
@@ -2830,7 +2874,10 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(u)
+	err = json.NewEncoder(w).Encode(u)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getReports(w http.ResponseWriter, r *http.Request) {
@@ -2843,7 +2890,10 @@ func getReports(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(transactionEvidences)
+	err = json.NewEncoder(w).Encode(transactionEvidences)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func outputErrorMsg(w http.ResponseWriter, status int, msg string) {
@@ -2852,9 +2902,12 @@ func outputErrorMsg(w http.ResponseWriter, status int, msg string) {
 	log.Print(msg)
 	w.WriteHeader(status)
 
-	json.NewEncoder(w).Encode(struct {
+	err := json.NewEncoder(w).Encode(struct {
 		Error string `json:"error"`
 	}{Error: msg})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func getImageURL(imageName string) string {
