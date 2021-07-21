@@ -1527,6 +1527,7 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(&resItemEdit{
@@ -1832,6 +1833,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemAllCacheAble[targetItem.ID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
@@ -1972,6 +1974,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemAllCacheAble[itemID] = false
 
 	rps := resPostShip{
 		Path:      fmt.Sprintf("/transactions/%d.png", item.TransactionEvidenceID.Int64),
@@ -2134,6 +2137,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
@@ -2323,6 +2327,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
@@ -2488,6 +2493,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
+	userSimpleCacheAble[seller.ID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resSell{ID: itemID})
@@ -2614,6 +2620,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemAllCacheAble[itemID] = false
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(&resItemEdit{
