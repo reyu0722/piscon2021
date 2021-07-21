@@ -342,7 +342,6 @@ func main() {
 
 	mux := goji.NewMux()
 
-
 	checkUserPassword()
 	userCacheInitialize()
 	itemCacheInitialize()
@@ -383,6 +382,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
+	mux.Use(coalaRoute("GET"))
 	log.Fatal(http.ListenAndServe(":8000", mux))
 }
 
@@ -507,7 +507,6 @@ func userCacheInitialize() {
 	}
 }
 
-
 func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	_, ok := userCache[id]
 	if !ok {
@@ -534,7 +533,6 @@ func addUserCache(user User) {
 	}
 }
 
-
 type ItemCached struct {
 	ID          int64  `json:"id" db:"id"`
 	SellerID    int64  `json:"seller_id" db:"seller_id"`
@@ -558,8 +556,6 @@ func itemCacheInitialize() {
 		itemCache[item.ID] = item
 	}
 }
-
-
 
 func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
 	if itemCache == nil {
@@ -591,8 +587,6 @@ func addItemCache(item Item) {
 		}
 	}
 }
-
-
 
 func getConfigByName(name string) (string, error) {
 	config := Config{}
@@ -1319,7 +1313,6 @@ type ItemDetailDB struct {
 	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
-
 
 func getItem(w http.ResponseWriter, r *http.Request) {
 	itemIDStr := pat.Param(r, "item_id")
@@ -2164,7 +2157,6 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 
 	tx.Commit()
 
-
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
 	if err != nil {
@@ -2506,7 +2498,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		CategoryID:  category.ID,
 		SellerID:    seller.ID,
 	})
-
 
 	now := time.Now()
 	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
