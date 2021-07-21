@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/http/fcgi"
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
@@ -399,16 +398,17 @@ func main() {
 
 	listener, err := net.Listen("unix", socketFile)
 	if err != nil {
+		log.Fatal(err)
 		return
 	}
 
 	err = os.Chmod(socketFile, 0777)
 	if err != nil {
-		log.Print(err)
+		log.Fatal(err)
 		return
 	}
 
-	fcgi.Serve(listener, mux)
+	log.Fatal(http.Serve(listener, mux))
 
 	// log.Fatal(http.ListenAndServe("./tmp/isucari.sock", mux))
 }
