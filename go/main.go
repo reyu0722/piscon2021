@@ -1317,7 +1317,7 @@ type ItemDetailDB struct {
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
 type ItemCache struct {
-	Item  *ItemDetailDB
+	Item  ItemDetailDB
 	mutex *sync.Mutex
 	IsNew bool
 }
@@ -1328,7 +1328,7 @@ func (c ItemCache) Used() {
 	c.mutex.Unlock()
 }
 
-func (c ItemCache) Set(item *ItemDetailDB) {
+func (c ItemCache) Set(item ItemDetailDB) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.Item = item
@@ -1336,7 +1336,7 @@ func (c ItemCache) Set(item *ItemDetailDB) {
 }
 
 type UserSimpleCache struct {
-	User  *UserSimpleDB
+	User  UserSimpleDB
 	mutex *sync.Mutex
 	IsNew bool
 }
@@ -1346,7 +1346,7 @@ func (c UserSimpleCache) Used() {
 	c.IsNew = false
 	c.mutex.Unlock()
 }
-func (c UserSimpleCache) Set(user *UserSimpleDB) {
+func (c UserSimpleCache) Set(user UserSimpleDB) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.User = user
@@ -1380,7 +1380,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	item := ItemDetailDB{}
 	itemCache, ok := itemDetailCache[itemID]
 	if ok {
-		item = *itemCache.Item
+		item = itemCache.Item
 		if _, ok = userSimpleCache[item.SellerID]; ok {
 			if _, ok = userSimpleCache[item.BuyerID]; ok || item.BuyerID == 0 {
 				canUseCache = true
@@ -1416,10 +1416,10 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
 			return
 		}
-		itemDetailCache[item.ID].Set(&item)
-		userSimpleCache[item.SellerID].Set(item.Seller)
+		itemDetailCache[item.ID].Set(item)
+		userSimpleCache[item.SellerID].Set(*item.Seller)
 		if item.Buyer.ID.Valid {
-			userSimpleCache[item.BuyerID].Set(item.Buyer)
+			userSimpleCache[item.BuyerID].Set(*item.Buyer)
 		}
 	}
 
