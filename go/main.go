@@ -391,7 +391,7 @@ func main() {
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
 	mux.Use(coalaRoute("GET"))
-	log.Fatal(http.ListenAndServe(":8000", mux))
+	log.Fatal(http.ListenAndServe("./tmp/isucari.sock", mux))
 }
 
 func getSession(r *http.Request) *sessions.Session {
