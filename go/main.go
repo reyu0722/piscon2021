@@ -474,10 +474,13 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	}
 }
 
+/*
 var (
 	userMap    = map[int64]*UserCached{}
 	// userMapMux = sync.RWMutex{}
 )
+*/
+var userMap map[int64]*UserCached
 
 type UserCached struct {
 	ID             int64  `json:"id" db:"id"`
@@ -487,6 +490,7 @@ type UserCached struct {
 }
 
 func userCacheInitialize() {
+	userMap = map[int64]*UserCached{}
 	users := []UserCached{}
 	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
