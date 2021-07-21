@@ -1734,7 +1734,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		})
 		return err
 	})
-
+	itemAllCacheAble[targetItem.ID] = false
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		targetItem.SellerID,
 		buyerID,
@@ -1785,6 +1785,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemAllCacheAble[targetItem.ID] = false
 	_, err = tx.Exec("INSERT INTO `shippings` (`transaction_evidence_id`, `status`, `item_name`, `item_id`, `reserve_id`, `reserve_time`, `to_address`, `to_name`, `from_address`, `from_name`, `img_binary`) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		transactionEvidenceID,
 		ShippingsStatusInitial,
@@ -2469,6 +2470,8 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+
+	itemAllCacheAble[itemID] = false
 
 	addItemCache(Item{
 		ID:          itemID,
