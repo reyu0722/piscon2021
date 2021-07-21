@@ -396,7 +396,7 @@ func main() {
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
 	mux.Use(coalaRoute("GET"))
 
-	listener, err := net.Listen("unix", "/var/tmp/isucari.sock")
+	listener, err := net.Listen("unix", "./tmp/isucari.sock")
 	if err != nil {
 		return
 	}
