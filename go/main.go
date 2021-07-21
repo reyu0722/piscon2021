@@ -1631,8 +1631,8 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	mutex.Lock()
-	defer mutex.Unlock()
+	// mutex.Lock()
+	// defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1644,7 +1644,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 
 	itemData := ItemData{}
-	err = tx.Get(&itemData, queryStr, rb.ItemID)
+	err = tx.Get(&itemData, queryStr + " FOR UPDATE", rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
