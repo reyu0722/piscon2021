@@ -2401,6 +2401,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	log.Print(userID.(int64))
 
 	user, err := getUserFromCache(dbx, userID.(int64))
+	log.Print(user.ID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
