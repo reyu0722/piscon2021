@@ -1344,7 +1344,11 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// user, err := getUserFromCache(dbx, userID.(int64))
+	user, err := getUserFromCache(dbx, userID.(int64))
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "user not found")
+		return
+	}
 
 	//item, ok := itemAllCache[itemID]
 	item := ItemDetailDB{}
@@ -1420,7 +1424,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if item.Buyer.ID.Valid && (userID == item.SellerID || userID == item.BuyerID) {
+	if item.Buyer.ID.Valid && (user.ID == item.SellerID || user.ID == item.BuyerID) {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = &UserSimple{
 			ID:           item.BuyerID,
