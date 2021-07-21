@@ -516,18 +516,19 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (*UserCached, error) {
-	user, ok := userCache[id]
+func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
+	_, ok := userCache[id]
 	if !ok {
-		err := sqlx.Get(q, user, "SELECT id, account_name, hashed_password, address FROM `users` WHERE `id` = ?", id)
+		user := UserCached{}
+		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address FROM `users` WHERE `id` = ?", id)
 		if err != nil {
 			log.Print(err)
 			return user, err
 		}
-		userCache[id] = user
+		userCache[id] = &user
 		return user, nil
 	} else {
-		return userCache[id], nil
+		return *userCache[id], nil
 	}
 }
 func addUserCache(user User) {
