@@ -1448,21 +1448,21 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	/*
-	canUseCache := false
-	item := ItemDetailDB{}
-	itemCache, ok := itemDetailCache[itemID]
-	if ok {
-		item = itemCache.Item
-		if _, ok = userSimpleCache[item.SellerID]; ok {
-			if _, ok = userSimpleCache[item.BuyerID]; ok || item.BuyerID == 0 {
-				canUseCache = true
+		canUseCache := false
+		item := ItemDetailDB{}
+		itemCache, ok := itemDetailCache[itemID]
+		if ok {
+			item = itemCache.Item
+			if _, ok = userSimpleCache[item.SellerID]; ok {
+				if _, ok = userSimpleCache[item.BuyerID]; ok || item.BuyerID == 0 {
+					canUseCache = true
+				}
 			}
 		}
-	}
 
-	if !canUseCache {
-		*/
-		queryStr := `SELECT i.*, 
+		if !canUseCache {
+	*/
+	queryStr := `SELECT i.*, 
 			u.id as "seller.id",
 			u.account_name as "seller.account_name",
 			u.num_sell_items as "seller.num_sell_items",
@@ -1478,24 +1478,24 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 			left outer join transaction_evidences t on t.item_id=i.id
 			left outer join shippings s on s.transaction_evidence_id=t.id 
 		`
-		item := ItemDetailDB{}
-		err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
-		if err == sql.ErrNoRows {
-			outputErrorMsg(w, http.StatusNotFound, "item not found")
-			return
-		}
-		if err != nil {
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			return
-		}
-		/*
+	item := ItemDetailDB{}
+	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	/*
 		itemDetailCache[item.ID].Set(item)
 		userSimpleCache[item.SellerID].Set(*item.Seller)
 		if item.Buyer.ID.Valid {
 			userSimpleCache[item.BuyerID].Set(*item.Buyer)
 		}
-		*/
+	*/
 	//}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
@@ -1658,7 +1658,10 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemDetailCache[itemID].Used()
+
+	if c, ok := itemDetailCache[itemID]; ok {
+		c.Used()
+	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
@@ -1965,7 +1968,9 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemDetailCache[targetItem.ID].Used()
+	if c, ok := itemDetailCache[targetItem.ID]; ok {
+		c.Used()
+	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
@@ -2108,7 +2113,9 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemDetailCache[itemID].Used()
+	if c, ok := itemDetailCache[itemID]; ok {
+		c.Used()
+	}
 
 	rps := resPostShip{
 		Path:      fmt.Sprintf("/transactions/%d.png", item.TransactionEvidenceID.Int64),
@@ -2272,7 +2279,10 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemDetailCache[itemID].Used()
+	if c, ok := itemDetailCache[itemID]; ok {
+		c.Used()
+	}
+
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
 	if err != nil {
@@ -2461,7 +2471,9 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemDetailCache[itemID].Used()
+	if c, ok := itemDetailCache[itemID]; ok {
+		c.Used()
+	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
@@ -2654,7 +2666,9 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
-	userSimpleCache[seller.ID].Used()
+	if c, ok := userSimpleCache[seller.ID]; ok {
+		c.Used()
+	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resSell{ID: itemID})
@@ -2783,7 +2797,9 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemDetailCache[itemID].Used()
+	if c, ok := itemDetailCache[itemID]; ok {
+		c.Used()
+	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
