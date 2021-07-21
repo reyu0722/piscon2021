@@ -1335,21 +1335,21 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	item, ok := itemAllCache[itemID]
 	if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
 		queryStr := `SELECT i.*, 
-		u.id as "seller.id",
-		u.account_name as "seller.account_name",
-		u.num_sell_items as "seller.num_sell_items",
-		u2.id as "buyer.id",
-		u2.account_name as "buyer.account_name",
-		u2.num_sell_items as "buyer.num_sell_items",
-		t.id as "transaction_evidence_id",
-		t.status as "transaction_evidence_status",
-		s.status as "shipping_status"
-		FROM items i 
-		left outer join users u on u.id=i.seller_id 
-		left outer join users u2 on u2.id=i.buyer_id
-		left outer join transaction_evidences t on t.item_id=i.id
-		left outer join shippings s on s.transaction_evidence_id=t.id 
-	`
+			u.id as "seller.id",
+			u.account_name as "seller.account_name",
+			u.num_sell_items as "seller.num_sell_items",
+			u2.id as "buyer.id",
+			u2.account_name as "buyer.account_name",
+			u2.num_sell_items as "buyer.num_sell_items",
+			t.id as "transaction_evidence_id",
+			t.status as "transaction_evidence_status",
+			s.status as "shipping_status"
+			FROM items i 
+			left outer join users u on u.id=i.seller_id 
+			left outer join users u2 on u2.id=i.buyer_id
+			left outer join transaction_evidences t on t.item_id=i.id
+			left outer join shippings s on s.transaction_evidence_id=t.id 
+		`
 		err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
 		if err == sql.ErrNoRows {
 			outputErrorMsg(w, http.StatusNotFound, "item not found")
@@ -1424,7 +1424,6 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(itemDetail)
-
 }
 
 func postItemEdit(w http.ResponseWriter, r *http.Request) {
