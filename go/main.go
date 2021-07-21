@@ -2164,7 +2164,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		TransactionEvidenceStatus   sql.NullString `json:"transaction_evidence_status,omitempty" db:"transaction_evidence_status"`
 		TransactionEvidenceSellerID sql.NullInt64  `json:"transaction_evidence_seller_id" db:"transaction_evidence_seller_id"`
 		ReserveID                   sql.NullString `json:"reserve_id" db:"reserve_id"`
-		ShippingStatus              sql.NullInt64  `json:"shipping_status" db:"shipping_status"`
+		ShippingStatus              sql.NullString `json:"shipping_status" db:"shipping_status"`
 	}
 
 	queryStr := `SELECT i.status, 
