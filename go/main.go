@@ -470,13 +470,11 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	}
 }
 
-/*
+
 var (
 	userMap    = map[int64]*UserCached{}
-	// userMapMux = sync.RWMutex{}
+	userMapMux = sync.RWMutex{}
 )
-*/
-var userMap map[int64]*UserCached
 
 type UserCached struct {
 	ID             int64  `json:"id" db:"id"`
@@ -499,9 +497,9 @@ func userCacheInitialize() {
 }
 
 func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
-	// userMapMux.RLock()
+	userMapMux.RLock()
 	_, ok := userMap[id]
-	// userMapMux.RUnlock()
+	userMapMux.RUnlock()
 	if !ok {
 		log.Print("not exist")
 		user := UserCached{}
@@ -510,16 +508,16 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 			log.Print(err)
 			return UserCached{}, err
 		}
-		// userMapMux.Lock()
+		userMapMux.Lock()
 		userMap[id] = &user
-		// userMapMux.Unlock()
+		userMapMux.Unlock()
 
 		return user, err
 	}
 	return *userMap[id], nil
 }
 func addUserCache(user User) {
-	// userMapMux.Lock()
+	userMapMux.Lock()
 	if _, ok := userMap[user.ID]; !ok {
 		userMap[user.ID] = &UserCached{
 			ID:             user.ID,
@@ -528,7 +526,7 @@ func addUserCache(user User) {
 			Address:        user.Address,
 		}
 	}
-	// userMapMux.Unlock()
+	userMapMux.Unlock()
 }
 
 type ItemCached struct {
@@ -2398,10 +2396,8 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
-	log.Print(userID.(int64))
 
 	user, err := getUserFromCache(dbx, userID.(int64))
-	log.Print(user.ID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
