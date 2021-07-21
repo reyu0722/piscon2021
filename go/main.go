@@ -499,23 +499,23 @@ func userCacheInitialize() {
 }
 
 func getUserFromCache(q sqlx.Queryer, id int64) (*UserCached, error) {
-	userMapMux.RLock()
+	// userMapMux.RLock()
 	user, ok := userMap[id]
-	userMapMux.RUnlock()
+	// userMapMux.RUnlock()
 	if !ok {
 		user = &UserCached{}
 		err := sqlx.Get(q, user, "SELECT * from users WHERE id = ?", id)
 		if err == nil {
-			userMapMux.Lock()
+			// userMapMux.Lock()
 			userMap[id] = user
-			userMapMux.Unlock()
+			// userMapMux.Unlock()
 		}
 		return user, err
 	}
 	return user, nil
 }
 func addUserCache(user User) {
-	userMapMux.Lock()
+	// userMapMux.Lock()
 	if _, ok := userMap[user.ID]; !ok {
 		userMap[user.ID] = &UserCached{
 			ID:             user.ID,
@@ -524,7 +524,7 @@ func addUserCache(user User) {
 			Address:        user.Address,
 		}
 	}
-	userMapMux.Unlock()
+	// userMapMux.Unlock()
 }
 
 type ItemCached struct {
