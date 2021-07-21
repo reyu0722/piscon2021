@@ -475,7 +475,7 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 }
 
 var (
-	userMap    = make(map[int64]*User)
+	userMap    = make(map[int64]*UserCached)
 	userMapMux = &sync.RWMutex{}
 )
 
@@ -487,7 +487,7 @@ type UserCached struct {
 }
 
 func userCacheInitialize() {
-	users := []User{}
+	users := []UserCached{}
 	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
 		log.Print(err)
@@ -498,19 +498,19 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (*User, error) {
+func getUserFromCache(q sqlx.Queryer, id int64) (*UserCached, error) {
 	userMapMux.RLock()
 	user, ok := userMap[id]
 	userMapMux.RUnlock()
 	if !ok {
-		return &User{}, sql.ErrNoRows
+		return &UserCached{}, sql.ErrNoRows
 	}
 	return user, nil
 }
 func addUserCache(user User) {
 	userMapMux.Lock()
 	if _, ok := userMap[user.ID]; !ok {
-		userMap[user.ID] = &User{
+		userMap[user.ID] = &UserCached{
 			ID:             user.ID,
 			AccountName:    user.AccountName,
 			HashedPassword: user.HashedPassword,
