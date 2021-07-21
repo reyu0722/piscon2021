@@ -7,13 +7,17 @@ import (
 	"html/template"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/http/fcgi"
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -391,7 +395,29 @@ func main() {
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
 	mux.Use(coalaRoute("GET"))
-	log.Fatal(http.ListenAndServe("./tmp/isucari.sock", mux))
+
+	listener, err := net.Listen("unix", "/var/tmp/isucari.sock")
+	if err != nil {
+		return
+	}
+
+	// ここから
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
+	go func(c chan os.Signal) {
+		// Wait for a SIGINT or SIGKILL:
+		sig := <-c
+		log.Printf("Caught signal %s: shutting down.", sig)
+		// Stop listening (and unlink the socket if unix type):
+		listener.Close()
+		// And we're done:
+		os.Exit(0)
+	}(sigc)
+	// ここをコピペする
+
+	fcgi.Serve(listener, mux)
+
+	// log.Fatal(http.ListenAndServe("./tmp/isucari.sock", mux))
 }
 
 func getSession(r *http.Request) *sessions.Session {
