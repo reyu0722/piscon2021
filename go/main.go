@@ -1423,7 +1423,10 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(itemDetail)
+	err = json.NewEncoder(w).Encode(itemDetail)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func postItemEdit(w http.ResponseWriter, r *http.Request) {
