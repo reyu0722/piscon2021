@@ -520,7 +520,6 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 
 		return user, err
 	}
-	log.Print(id)
 	return *userMap[id], nil
 }
 func addUserCache(user User) {
@@ -674,6 +673,9 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("failed to get categories: %s.", err.Error())
 	}
+	checkUserPassword()
+	userCacheInitialize()
+	itemCacheInitialize()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(res)
