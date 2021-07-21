@@ -1668,7 +1668,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tx.Get(&itemData, queryStr, rb.ItemID)
+	err = tx.Get(&itemData, queryStr + "FOR UPDATE", rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
