@@ -470,23 +470,15 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	}
 }
 
-
 var (
-	userMap    = map[int64]*UserCached{}
+	userMap    = map[int64]*User{}
 	userMapMux = sync.RWMutex{}
 )
 
-type UserCached struct {
-	ID             int64  `json:"id" db:"id"`
-	AccountName    string `json:"account_name" db:"account_name"`
-	HashedPassword []byte `json:"-" db:"hashed_password"`
-	Address        string `json:"address,omitempty" db:"address"`
-}
-
 func userCacheInitialize() {
-	userMap = map[int64]*UserCached{}
-	users := []UserCached{}
-	err := dbx.Select(&users, "SELECT id, account_name, hashed_password, address FROM `users`")
+	userMap = map[int64]*User{}
+	users := []User{}
+	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
 		log.Print(err)
 		return
@@ -496,17 +488,17 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
+func getUserFromCache(q sqlx.Queryer, id int64) (User, error) {
 	userMapMux.RLock()
 	_, ok := userMap[id]
 	userMapMux.RUnlock()
 	if !ok {
 		log.Print("not exist")
-		user := UserCached{}
-		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address from users WHERE id = ?", id)
+		user := User{}
+		err := sqlx.Get(q, &user, "SELECT * from users WHERE id = ?", id)
 		if err != nil {
 			log.Print(err)
-			return UserCached{}, err
+			return User{}, err
 		}
 		userMapMux.Lock()
 		userMap[id] = &user
@@ -519,12 +511,7 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 func addUserCache(user User) {
 	userMapMux.Lock()
 	if _, ok := userMap[user.ID]; !ok {
-		userMap[user.ID] = &UserCached{
-			ID:             user.ID,
-			AccountName:    user.AccountName,
-			HashedPassword: user.HashedPassword,
-			Address:        user.Address,
-		}
+		userMap[user.ID] = &user
 	}
 	userMapMux.Unlock()
 }
@@ -2831,11 +2818,19 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		AccountName: accountName,
 		Address:     address,
 	}
+	lastBump, err := time.Parse("2006-01-02 03:04:05", "2000-01-01 00:00:00")
+	if err != nil {
+		log.Print(err)
+	}
+
 	addUserCache(User{
 		ID:             userID,
 		AccountName:    accountName,
 		Address:        address,
 		HashedPassword: hashedPassword,
+		NumSellItems:   0,
+		LastBump:       lastBump,
+		CreatedAt:      time.Now(),
 	})
 
 	session := getSession(r)
