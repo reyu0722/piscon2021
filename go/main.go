@@ -498,21 +498,21 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (*UserCached, error) {
+func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	// userMapMux.RLock()
-	user, ok := userMap[id]
+	_, ok := userMap[id]
 	// userMapMux.RUnlock()
 	if !ok {
-		user = &UserCached{}
-		err := sqlx.Get(q, user, "SELECT * from users WHERE id = ?", id)
+		user := UserCached{}
+		err := sqlx.Get(q, &user, "SELECT * from users WHERE id = ?", id)
 		if err == nil {
 			// userMapMux.Lock()
-			userMap[id] = user
+			userMap[id] = &user
 			// userMapMux.Unlock()
 		}
 		return user, err
 	}
-	return user, nil
+	return *userMap[id], nil
 }
 func addUserCache(user User) {
 	// userMapMux.Lock()
