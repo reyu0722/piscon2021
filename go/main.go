@@ -1330,7 +1330,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
+	// user, err := getUserFromCache(dbx, userID.(int64))
 
 	item, ok := itemAllCache[itemID]
 	if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
