@@ -474,51 +474,20 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 	}
 }
 
-var userCache map[int64]*UserCached
-
-type UserCached struct {
-	ID             int64  `json:"id" db:"id"`
-	AccountName    string `json:"account_name" db:"account_name"`
-	HashedPassword []byte `json:"-" db:"hashed_password"`
-	Address        string `json:"address,omitempty" db:"address"`
-}
+var (
+	userMap    = make(map[int64]*User)
+	userMapMux = &sync.RWMutex{}
+)
 
 func userCacheInitialize() {
-	userCache = map[int64]*UserCached{}
-	users := []UserCached{}
+	users := []User{}
 	err := dbx.Select(&users, "SELECT * FROM `users`")
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	for _, user := range users {
-		userCache[user.ID] = &user
-	}
-}
-
-func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
-	_, ok := userCache[id]
-	if !ok {
-		user := UserCached{}
-		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address FROM `users` WHERE `id` = ?", id)
-		if err != nil {
-			log.Print(err)
-			return user, err
-		}
-		userCache[id] = &user
-		return user, nil
-	} else {
-		return *userCache[id], nil
-	}
-}
-func addUserCache(user User) {
-	if _, ok := userCache[user.ID]; !ok {
-		userCache[user.ID] = &UserCached{
-			ID:             user.ID,
-			AccountName:    user.AccountName,
-			HashedPassword: user.HashedPassword,
-			Address:        user.Address,
-		}
+		userMap[user.ID] = &user
 	}
 }
 
@@ -1304,26 +1273,14 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	user, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		return
 	}
-	/*
-		canUseCache := false
-		item := ItemDetailDB{}
-		itemCache, ok := itemDetailCache[itemID]
-		if ok {
-			item = itemCache.Item
-			if _, ok = userSimpleCache[item.SellerID]; ok {
-				if _, ok = userSimpleCache[item.BuyerID]; ok || item.BuyerID == 0 {
-					canUseCache = true
-				}
-			}
-		}
+	userMapMux.RUnlock()
 
-		if !canUseCache {
-	*/
 	queryStr := `SELECT i.*, 
 		u.id as "seller.id",
 		u.account_name as "seller.account_name",
@@ -1452,11 +1409,13 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	seller, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	targetItem := Item{}
 	err = dbx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ?", itemID)
@@ -1549,11 +1508,13 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	seller, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	transactionEvidence := TransactionEvidence{}
 	err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `id` = ?", transactionEvidenceID)
@@ -1668,32 +1629,23 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	seller, err := getUserFromCache(tx, targetItem.SellerID)
-
-	if err == sql.ErrNoRows {
+	userMapMux.RLock()
+	seller, ok := userMap[targetItem.SellerID]
+	if !ok {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
 		return
 	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
+	userMapMux.RUnlock()
 
-	buyer, err := getUserFromCache(tx, buyerID.(int64))
-	if err == sql.ErrNoRows {
+	userMapMux.RLock()
+	buyer, ok := userMap[buyerID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
 		return
 	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
+	userMapMux.RUnlock()
 
 	category, err := getCategoryByID(dbx, targetItem.CategoryID)
 	if err != nil {
@@ -1860,11 +1812,13 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	seller, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -2004,11 +1958,13 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	seller, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -2165,11 +2121,13 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buyer, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	buyer, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	transactionEvidence := TransactionEvidence{}
 	err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", itemID)
@@ -2387,11 +2345,13 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	user, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	img, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -2527,11 +2487,13 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
-	if err != nil {
+	userMapMux.RLock()
+	user, ok := userMap[userID.(int64)]
+	if !ok {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	userMapMux.RUnlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -2821,12 +2783,24 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		AccountName: accountName,
 		Address:     address,
 	}
-	addUserCache(User{
+	lastBump, err := time.Parse("2000-01-01 00:00:00", "2000-01-01 00:00:00")
+	if err != nil {
+		log.Print(err)
+	}
+
+	uCache := User{
 		ID:             userID,
 		AccountName:    accountName,
-		Address:        address,
 		HashedPassword: hashedPassword,
-	})
+		Address:        address,
+		NumSellItems:   0,
+		LastBump:       lastBump,
+		CreatedAt:      time.Now(),
+	}
+
+	userMapMux.Lock()
+	userMap[userID] = &uCache
+	userMapMux.Unlock()
 
 	session := getSession(r)
 	session.Values["user_id"] = u.ID
