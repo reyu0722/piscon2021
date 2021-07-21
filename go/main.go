@@ -343,7 +343,7 @@ func main() {
 	mux := goji.NewMux()
 
 	if itemAllCache == nil {
-		itemAllCache = make(map[int64]*ItemDetailDB)
+		itemAllCache = make(map[int64]ItemDetailDB)
 	}
 	if itemAllCacheAble == nil {
 		itemAllCacheAble = make(map[int64]bool)
@@ -1323,7 +1323,7 @@ type ItemDetailDB struct {
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
 
-var itemAllCache map[int64]*ItemDetailDB
+var itemAllCache map[int64]ItemDetailDB
 var itemAllCacheAble map[int64]bool
 
 // var userSimpleCache map[int64]UserSimple
@@ -1350,8 +1350,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ptr, ok := itemAllCache[itemID]
-	item := *ptr
+	item, ok := itemAllCache[itemID]
 	//item := ItemDetailDB{}
 	if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
 		queryStr := `SELECT i.*, 
@@ -1382,7 +1381,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		itemAllCache[item.ID] = &item
+		itemAllCache[item.ID] = item
 
 		itemAllCacheAble[item.ID] = true
 		userSimpleCacheAble[item.SellerID] = true
