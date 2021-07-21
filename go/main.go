@@ -17,9 +17,9 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/goccy/go-json"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
-	"github.com/goccy/go-json"
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
@@ -1350,10 +1350,10 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//item, ok := itemAllCache[itemID]
-	item := ItemDetailDB{}
-	//if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
-	queryStr := `SELECT i.*, 
+	item, ok := itemAllCache[itemID]
+	//item := ItemDetailDB{}
+	if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
+		queryStr := `SELECT i.*, 
 		u.id as "seller.id",
 		u.account_name as "seller.account_name",
 		u.num_sell_items as "seller.num_sell_items",
@@ -1369,27 +1369,26 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
-	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
+		err = dbx.Get(item, queryStr+" WHERE i.id = ?", itemID)
+		if err == sql.ErrNoRows {
+			outputErrorMsg(w, http.StatusNotFound, "item not found")
+			return
+		}
+		if err != nil {
+			log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return
+		}
 
-	itemAllCache[item.ID] = &item
-	/*
+		itemAllCache[item.ID] = item
+
 		itemAllCacheAble[item.ID] = true
 		userSimpleCacheAble[item.SellerID] = true
 
 		if item.Buyer.ID.Valid {
 			userSimpleCacheAble[item.BuyerID] = true
 		}
-	*/
-	//}
+	}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
 	if err != nil {
