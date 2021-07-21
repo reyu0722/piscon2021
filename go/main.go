@@ -1377,7 +1377,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// itemAllCache[item.ID] = &item
-	itemAllCacheAble[item.ID] = true
+	// itemAllCacheAble[item.ID] = true
 	//userSimpleCacheAble[item.SellerID] = true
 	/*
 	if item.Buyer.ID.Valid {
