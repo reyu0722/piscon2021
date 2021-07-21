@@ -1668,7 +1668,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tx.Get(&itemData, queryStr + " FOR UPDATE", rb.ItemID)
+	err = tx.Get(&itemData, queryStr+" FOR UPDATE", rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -2246,29 +2246,29 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/*
-	if shipping.Status != ShippingsStatusShipping && shipping.Status != ShippingsStatusDone {
-		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
-		tx.Rollback()
-		return
-	}
-	*/
-
-	// if shipping.Status != ShippingsStatusDone {
-		ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-			ReserveID: shipping.ReserveID,
-		})
-		if err != nil {
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-			tx.Rollback()
-
-			return
-		}
-		if !(ssr.Status == ShippingsStatusDone) {
+		if shipping.Status != ShippingsStatusShipping && shipping.Status != ShippingsStatusDone {
 			outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
 			tx.Rollback()
 			return
 		}
+	*/
+
+	// if shipping.Status != ShippingsStatusDone {
+	ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
+		ReserveID: shipping.ReserveID,
+	})
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
+		tx.Rollback()
+
+		return
+	}
+	if !(ssr.Status == ShippingsStatusDone) {
+		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
+		tx.Rollback()
+		return
+	}
 	// }
 
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
@@ -2822,6 +2822,7 @@ func getReports(w http.ResponseWriter, r *http.Request) {
 func outputErrorMsg(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
+	log.Print(msg)
 	w.WriteHeader(status)
 
 	json.NewEncoder(w).Encode(struct {
