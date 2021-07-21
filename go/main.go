@@ -1580,6 +1580,9 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 var itemBuying map[int64]*sync.Mutex
 
 func postBuy(w http.ResponseWriter, r *http.Request) {
+	if itemBuying == nil {
+		itemBuying = make(map[int64]*sync.Mutex)
+	}
 	rb := reqBuy{}
 
 	err := json.NewDecoder(r.Body).Decode(&rb)
@@ -1601,6 +1604,14 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mutex, ok := itemBuying[rb.ItemID]
+	if !ok {
+		mutex = &sync.Mutex{}
+		itemBuying[rb.ItemID] = mutex
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	tx, err := dbx.Beginx()
 	if err != nil {
 		log.Print(err)
@@ -1608,6 +1619,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+
 
 	queryStr := `SELECT * from items where id = ? FOR UPDATE`
 
