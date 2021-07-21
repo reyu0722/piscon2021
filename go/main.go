@@ -2218,31 +2218,29 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/*
-		if shipping.Status != ShippingsStatusShipping && shipping.Status != ShippingsStatusDone {
-			outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
-			tx.Rollback()
-			return
-		}
-	*/
-
-	// if shipping.Status != ShippingsStatusDone {
-	ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-		ReserveID: item.ReserveID.String,
-	})
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-		tx.Rollback()
-
-		return
-	}
-	if !(ssr.Status == ShippingsStatusDone) {
+	if item.ShippingStatus.String != ShippingsStatusShipping && item.ShippingStatus.String != ShippingsStatusDone {
 		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
 		tx.Rollback()
 		return
 	}
-	// }
+
+	if item.ShippingStatus.String != ShippingsStatusDone {
+		ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
+			ReserveID: item.ReserveID.String,
+		})
+		if err != nil {
+			log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
+			tx.Rollback()
+
+			return
+		}
+		if !(ssr.Status == ShippingsStatusDone) {
+			outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
+			tx.Rollback()
+			return
+		}
+	}
 
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusDone,
