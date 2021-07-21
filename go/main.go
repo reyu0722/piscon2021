@@ -493,7 +493,7 @@ func userCacheInitialize() {
 		log.Print(err)
 		return
 	}
-	for i, _ := range users {
+	for i := range users {
 		userMap[users[i].ID] = &users[i]
 	}
 }
