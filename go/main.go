@@ -3,7 +3,6 @@ package main
 import (
 	crand "crypto/rand"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -20,6 +19,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	"github.com/goccy/go-json"
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
@@ -1380,14 +1380,14 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCache[item.ID] = &item
+	// itemAllCache[item.ID] = &item
 	/*
-	itemAllCacheAble[item.ID] = true
-	userSimpleCacheAble[item.SellerID] = true
-	
-	if item.Buyer.ID.Valid {
-		userSimpleCacheAble[item.BuyerID] = true
-	}
+		itemAllCacheAble[item.ID] = true
+		userSimpleCacheAble[item.SellerID] = true
+
+		if item.Buyer.ID.Valid {
+			userSimpleCacheAble[item.BuyerID] = true
+		}
 	*/
 	//}
 
