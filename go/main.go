@@ -351,10 +351,6 @@ func main() {
 	http.DefaultTransport.(*http.Transport).ForceAttemptHTTP2 = true
 	http.DefaultClient.Timeout = 5 * time.Second
 
-	checkUserPassword()
-	userCacheInitialize()
-	itemCacheInitialize()
-
 	// API
 	mux.HandleFunc(pat.Post("/initialize"), postInitialize)
 	mux.HandleFunc(pat.Get("/new_items.json"), getNewItems)
