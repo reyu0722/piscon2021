@@ -520,6 +520,7 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 
 		return user, err
 	}
+	log.Print(id)
 	return *userMap[id], nil
 }
 func addUserCache(user User) {
