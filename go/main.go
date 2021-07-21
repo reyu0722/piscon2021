@@ -342,15 +342,9 @@ func main() {
 
 	mux := goji.NewMux()
 
-	if itemAllCache == nil {
-		itemAllCache = make(map[int64]ItemDetailDB)
-	}
-	if itemAllCacheAble == nil {
-		itemAllCacheAble = make(map[int64]bool)
-	}
-	if userSimpleCacheAble == nil {
-		userSimpleCacheAble = make(map[int64]bool)
-	}
+	itemDetailCache = make(map[int64]ItemCache)
+
+	userSimpleCache = make(map[int64]UserSimpleCache)
 
 	checkUserPassword()
 	userCacheInitialize()
@@ -1322,12 +1316,45 @@ type ItemDetailDB struct {
 	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
+type ItemCache struct {
+	Item  *ItemDetailDB
+	mutex *sync.Mutex
+	IsNew bool
+}
 
-var itemAllCache map[int64]ItemDetailDB
-var itemAllCacheAble map[int64]bool
+func (c ItemCache) Used() {
+	c.mutex.Lock()
+	c.IsNew = false
+	c.mutex.Unlock()
+}
 
-// var userSimpleCache map[int64]UserSimple
-var userSimpleCacheAble map[int64]bool
+func (c ItemCache) Set(item *ItemDetailDB) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.Item = item
+	c.IsNew = true
+}
+
+type UserSimpleCache struct {
+	User  *UserSimpleDB
+	mutex *sync.Mutex
+	IsNew bool
+}
+
+func (c UserSimpleCache) Used() {
+	c.mutex.Lock()
+	c.IsNew = false
+	c.mutex.Unlock()
+}
+func (c UserSimpleCache) Set(user *UserSimpleDB) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.User = user
+	c.IsNew = true
+}
+
+var itemDetailCache map[int64]ItemCache
+var userSimpleCache map[int64]UserSimpleCache
 
 func getItem(w http.ResponseWriter, r *http.Request) {
 	itemIDStr := pat.Param(r, "item_id")
@@ -1349,10 +1376,19 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		return
 	}
+	canUseCache := false
+	item := ItemDetailDB{}
+	itemCache, ok := itemDetailCache[itemID]
+	if ok {
+		item = *itemCache.Item
+		if _, ok = userSimpleCache[item.SellerID]; ok {
+			if _, ok = userSimpleCache[item.BuyerID]; ok || item.BuyerID == 0 {
+				canUseCache = true
+			}
+		}
+	}
 
-	item, ok := itemAllCache[itemID]
-	//item := ItemDetailDB{}
-	if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
+	if !canUseCache {
 		queryStr := `SELECT i.*, 
 			u.id as "seller.id",
 			u.account_name as "seller.account_name",
@@ -1380,14 +1416,10 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
 			return
 		}
-
-		itemAllCache[item.ID] = item
-
-		itemAllCacheAble[item.ID] = true
-		userSimpleCacheAble[item.SellerID] = true
-
+		itemDetailCache[item.ID].Set(&item)
+		userSimpleCache[item.SellerID].Set(item.Seller)
 		if item.Buyer.ID.Valid {
-			userSimpleCacheAble[item.BuyerID] = true
+			userSimpleCache[item.BuyerID].Set(item.Buyer)
 		}
 	}
 
@@ -1529,7 +1561,6 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `items` SET `price` = ?, `updated_at` = ? WHERE `id` = ?",
 		price,
 		time.Now(),
@@ -1552,7 +1583,7 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemAllCacheAble[itemID] = false
+	itemDetailCache[itemID].Used()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
@@ -1762,7 +1793,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		})
 		return err
 	})
-	itemAllCacheAble[targetItem.ID] = false
 	result, err := tx.Exec("INSERT INTO `transaction_evidences` (`seller_id`, `buyer_id`, `status`, `item_id`, `item_name`, `item_price`, `item_description`,`item_category_id`,`item_root_category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		targetItem.SellerID,
 		buyerID,
@@ -1791,7 +1821,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[targetItem.ID] = false
 	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		buyerID,
 		ItemStatusTrading,
@@ -1813,7 +1842,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[targetItem.ID] = false
 	_, err = tx.Exec("INSERT INTO `shippings` (`transaction_evidence_id`, `status`, `item_name`, `item_id`, `reserve_id`, `reserve_time`, `to_address`, `to_name`, `from_address`, `from_name`, `img_binary`) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		transactionEvidenceID,
 		ShippingsStatusInitial,
@@ -1862,7 +1890,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemAllCacheAble[targetItem.ID] = false
+	itemDetailCache[targetItem.ID].Used()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
@@ -1990,7 +2018,6 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `img_binary` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusWaitPickup,
 		img,
@@ -2006,7 +2033,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemAllCacheAble[itemID] = false
+	itemDetailCache[itemID].Used()
 
 	rps := resPostShip{
 		Path:      fmt.Sprintf("/transactions/%d.png", item.TransactionEvidenceID.Int64),
@@ -2143,7 +2170,6 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ssr.Status,
 		time.Now(),
@@ -2157,7 +2183,6 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		TransactionEvidenceStatusWaitDone,
 		time.Now(),
@@ -2172,8 +2197,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemAllCacheAble[itemID] = false
-
+	itemDetailCache[itemID].Used()
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
 	if err != nil {
@@ -2323,7 +2347,6 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusDone,
 		time.Now(),
@@ -2336,7 +2359,6 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		TransactionEvidenceStatusDone,
 		time.Now(),
@@ -2350,7 +2372,6 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		ItemStatusSoldOut,
 		time.Now(),
@@ -2365,7 +2386,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemAllCacheAble[itemID] = false
+	itemDetailCache[itemID].Used()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
@@ -2511,8 +2532,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
-
 	addItemCache(Item{
 		ID:          itemID,
 		Name:        name,
@@ -2522,7 +2541,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		SellerID:    seller.ID,
 	})
 
-	userSimpleCacheAble[seller.ID] = false
 	now := time.Now()
 	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
 		seller.NumSellItems+1,
@@ -2536,7 +2554,8 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
-	userSimpleCacheAble[seller.ID] = false
+	itemDetailCache[itemID].Used()
+	userSimpleCache[seller.ID].Used()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resSell{ID: itemID})
@@ -2633,7 +2652,6 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemAllCacheAble[itemID] = false
 	_, err = tx.Exec("UPDATE `items` SET `created_at`=?, `updated_at`=? WHERE id=?",
 		now,
 		now,
@@ -2666,7 +2684,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	itemAllCacheAble[itemID] = false
+	itemDetailCache[itemID].Used()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
