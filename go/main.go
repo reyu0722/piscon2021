@@ -475,8 +475,8 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 }
 
 var (
-	userMap    = map[int64]*UserCached{}
-	userMapMux = &sync.RWMutex{}
+	userMap    = make(map[int64]*UserCached)
+	userMapMux = sync.RWMutex{}
 )
 
 type UserCached struct {
