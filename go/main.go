@@ -507,6 +507,7 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	_, ok := userMap[id]
 	// userMapMux.RUnlock()
 	if !ok {
+		log.Print("not exist")
 		user := UserCached{}
 		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address from users WHERE id = ?", id)
 		if err != nil {
