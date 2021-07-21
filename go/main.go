@@ -509,6 +509,21 @@ func userCacheInitialize() {
 		userCache[user.ID] = &user
 	}
 }
+func userSimpleCacheInitialize() {
+	users := []UserSimpleDB{}
+	err := dbx.Select(&users, "SELECT * FROM `users`")
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	for _, user := range users {
+		userSimpleCache[user.ID.Int64] = UserSimpleCache{
+			User:  user,
+			mutex: &sync.Mutex{},
+			IsNew: true,
+		}
+	}
+}
 
 func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	_, ok := userCache[id]
@@ -532,6 +547,20 @@ func addUserCache(user User) {
 			AccountName:    user.AccountName,
 			HashedPassword: user.HashedPassword,
 			Address:        user.Address,
+		}
+	}
+}
+
+func addUserSimpleCache(user User) {
+	if _, ok := userSimpleCache[user.ID]; !ok {
+		userSimpleCache[user.ID] = UserSimpleCache{
+			User: UserSimpleDB{
+				ID:           sql.NullInt64{Int64: user.ID, Valid: true},
+				AccountName:  sql.NullString{String: user.AccountName, Valid: true},
+				NumSellItems: sql.NullInt32{Int32: int32(user.NumSellItems), Valid: true},
+			},
+			mutex: &sync.Mutex{},
+			IsNew: true,
 		}
 	}
 }
@@ -2621,7 +2650,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
-	itemDetailCache[itemID].Used()
 	userSimpleCache[seller.ID].Used()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
@@ -2956,6 +2984,11 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		AccountName:    accountName,
 		Address:        address,
 		HashedPassword: hashedPassword,
+	})
+	addUserSimpleCache(User{
+		ID:           userID,
+		AccountName:  accountName,
+		NumSellItems: 0,
 	})
 
 	session := getSession(r)
