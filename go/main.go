@@ -1374,12 +1374,14 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	/*
 	itemAllCache[item.ID] = item
 	itemAllCacheAble[item.ID] = true
 	userSimpleCacheAble[item.SellerID] = true
 	if !item.Buyer.ID.Valid {
 		userSimpleCacheAble[item.BuyerID] = true
 	}
+	*/
 	//}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
