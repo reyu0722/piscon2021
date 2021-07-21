@@ -488,32 +488,15 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (User, error) {
+func getUserFromCache(q sqlx.Queryer, id int64) (*User, error) {
 	userMapMux.RLock()
-	_, ok := userMap[id]
+	user, ok := userMap[id]
 	userMapMux.RUnlock()
 	if !ok {
 		log.Print("not exist")
-		user := User{}
-		err := sqlx.Get(q, &user, "SELECT * from users WHERE id = ?", id)
-		if err != nil {
-			log.Print(err)
-			return User{}, err
-		}
-		userMapMux.Lock()
-		userMap[id] = &user
-		userMapMux.Unlock()
-
-		return user, err
+		return user, sql.ErrNoRows
 	}
-	return *userMap[id], nil
-}
-func addUserCache(user User) {
-	userMapMux.Lock()
-	if _, ok := userMap[user.ID]; !ok {
-		userMap[user.ID] = &user
-	}
-	userMapMux.Unlock()
+	return user, nil
 }
 
 type ItemCached struct {
@@ -2823,7 +2806,8 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 	}
 
-	addUserCache(User{
+	userMapMux.Lock()
+	userMap[userID] = &User{
 		ID:             userID,
 		AccountName:    accountName,
 		Address:        address,
@@ -2831,7 +2815,8 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		NumSellItems:   0,
 		LastBump:       lastBump,
 		CreatedAt:      time.Now(),
-	})
+	}
+	userMapMux.Unlock()
 
 	session := getSession(r)
 	session.Values["user_id"] = u.ID
