@@ -488,7 +488,7 @@ func userCacheInitialize() {
 	}
 }
 
-func getUserFromCache(q sqlx.Queryer, id int64) (*User, error) {
+func getUser(id int64) (*User, error) {
 	userMapMux.RLock()
 	user, ok := userMap[id]
 	userMapMux.RUnlock()
@@ -1284,7 +1284,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
+	user, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		return
@@ -1432,7 +1432,7 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
+	seller, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -1529,7 +1529,7 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
+	seller, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -1648,7 +1648,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	seller, err := getUserFromCache(tx, targetItem.SellerID)
+	seller, err := getUser(targetItem.SellerID)
 
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
@@ -1662,7 +1662,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buyer, err := getUserFromCache(tx, buyerID.(int64))
+	buyer, err := getUser(buyerID.(int64))
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
@@ -1840,7 +1840,7 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
+	seller, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -1984,7 +1984,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserFromCache(dbx, userID.(int64))
+	seller, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -2145,7 +2145,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buyer, err := getUserFromCache(dbx, userID.(int64))
+	buyer, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -2367,7 +2367,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
+	user, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -2454,6 +2454,11 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		SellerID:    seller.ID,
 	})
 
+	userMapMux.Lock()
+	userMap[user.ID].NumSellItems += 1
+	userMap[user.ID].LastBump = time.Now()
+	userMapMux.Unlock()
+
 	now := time.Now()
 	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
 		seller.NumSellItems+1,
@@ -2507,7 +2512,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := getUserFromCache(dbx, userID.(int64))
+	user, err := getUser(userID.(int64))
 	if err != nil {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
@@ -2574,6 +2579,10 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
+
+	userMapMux.Lock()
+	userMap[user.ID].LastBump = now
+	userMapMux.Unlock()
 
 	_, err = tx.Exec("UPDATE `users` SET `last_bump`=? WHERE id=?",
 		now,
