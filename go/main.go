@@ -509,11 +509,14 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	if !ok {
 		user := UserCached{}
 		err := sqlx.Get(q, &user, "SELECT * from users WHERE id = ?", id)
-		if err == nil {
-			// userMapMux.Lock()
-			userMap[id] = &user
-			// userMapMux.Unlock()
+		if err != nil {
+			log.Print(err)
+			return UserCached{}, err
 		}
+		// userMapMux.Lock()
+		userMap[id] = &user
+		// userMapMux.Unlock()
+
 		return user, err
 	}
 	return *userMap[id], nil
