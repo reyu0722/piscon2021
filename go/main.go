@@ -1350,7 +1350,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
-		err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID, user.ID, itemID)
+		err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID)
 		if err == sql.ErrNoRows {
 			outputErrorMsg(w, http.StatusNotFound, "item not found")
 			return
