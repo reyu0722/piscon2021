@@ -1331,8 +1331,9 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 	// user, err := getUserFromCache(dbx, userID.(int64))
 
-	item, ok := itemAllCache[itemID]
-	if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
+	//item, ok := itemAllCache[itemID]
+	var item ItemDetailDB
+	//if !ok || !itemAllCacheAble[itemID] || !userSimpleCacheAble[item.SellerID] || (item.BuyerID != 0 && userSimpleCacheAble[item.BuyerID]) {
 		queryStr := `SELECT i.*, 
 			u.id as "seller.id",
 			u.account_name as "seller.account_name",
@@ -1365,7 +1366,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		if !item.Buyer.ID.Valid {
 			userSimpleCacheAble[item.BuyerID] = true
 		}
-	}
+	//}
 
 	category, err := getCategoryByID(dbx, item.CategoryID)
 	if err != nil {
