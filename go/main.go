@@ -13,11 +13,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -400,20 +398,6 @@ func main() {
 	if err != nil {
 		return
 	}
-
-	// ここから
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
-	go func(c chan os.Signal) {
-		// Wait for a SIGINT or SIGKILL:
-		sig := <-c
-		log.Printf("Caught signal %s: shutting down.", sig)
-		// Stop listening (and unlink the socket if unix type):
-		listener.Close()
-		// And we're done:
-		os.Exit(0)
-	}(sigc)
-	// ここをコピペする
 
 	fcgi.Serve(listener, mux)
 
