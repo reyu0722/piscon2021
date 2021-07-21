@@ -2245,13 +2245,15 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
 	if shipping.Status != ShippingsStatusShipping && shipping.Status != ShippingsStatusDone {
 		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
 		tx.Rollback()
 		return
 	}
+	*/
 
-	if shipping.Status != ShippingsStatusDone {
+	// if shipping.Status != ShippingsStatusDone {
 		ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 			ReserveID: shipping.ReserveID,
 		})
@@ -2267,7 +2269,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 			tx.Rollback()
 			return
 		}
-	}
+	// }
 
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusDone,
@@ -2276,7 +2278,6 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Print(err)
-
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
