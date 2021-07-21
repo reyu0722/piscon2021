@@ -560,6 +560,38 @@ func itemCacheInitialize() {
 	}
 }
 
+func itemDetailCacheInitialize() {
+	items := []ItemDetailDB{}
+	query := `SELECT i.*, 
+		u.id as "seller.id",
+		u.account_name as "seller.account_name",
+		u.num_sell_items as "seller.num_sell_items",
+		u2.id as "buyer.id",
+		u2.account_name as "buyer.account_name",
+		u2.num_sell_items as "buyer.num_sell_items",
+		t.id as "transaction_evidence_id",
+		t.status as "transaction_evidence_status",
+		s.status as "shipping_status"
+		FROM items i 
+		left outer join users u on u.id=i.seller_id 
+		left outer join users u2 on u2.id=i.buyer_id
+		left outer join transaction_evidences t on t.item_id=i.id
+		left outer join shippings s on s.transaction_evidence_id=t.id 
+	`
+	err := dbx.Select(&items, query)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	for _, item := range items {
+		itemDetailCache[item.ID] = ItemCache{
+			Item:  item,
+			mutex: &sync.Mutex{},
+			IsNew: true,
+		}
+	}
+}
+
 func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
 	if itemCache == nil {
 		itemCacheInitialize()
@@ -587,6 +619,16 @@ func addItemCache(item Item) {
 			Description: item.Description,
 			ImageName:   item.ImageName,
 			CategoryID:  item.CategoryID,
+		}
+	}
+}
+
+func addItemDetailCache(item ItemDetailDB) {
+	if _, ok := itemDetailCache[item.ID]; !ok {
+		itemDetailCache[item.ID] = ItemCache{
+			Item:  item,
+			mutex: &sync.Mutex{},
+			IsNew: true,
 		}
 	}
 }
@@ -2539,6 +2581,31 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		ImageName:   imgName,
 		CategoryID:  category.ID,
 		SellerID:    seller.ID,
+	})
+
+	addItemDetailCache(ItemDetailDB{
+		ID:       itemID,
+		SellerID: seller.ID,
+		Seller: &UserSimpleDB{
+			ID: sql.NullInt64{
+				Int64: seller.ID,
+				Valid: true,
+			},
+			AccountName: sql.NullString{
+				String: seller.AccountName,
+				Valid:  true,
+			},
+			NumSellItems: sql.NullInt32{
+				Int32: int32(seller.NumSellItems),
+				Valid: true,
+			},
+		},
+		Status:      ItemStatusOnSale,
+		Name:        name,
+		Price:       price,
+		Description: description,
+		ImageName:   imgName,
+		CategoryID:  category.ID,
 	})
 
 	now := time.Now()
