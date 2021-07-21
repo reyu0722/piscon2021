@@ -342,6 +342,11 @@ func main() {
 
 	mux := goji.NewMux()
 
+	http.DefaultTransport.(*http.Transport).MaxIdleConns = 0
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1024
+	http.DefaultTransport.(*http.Transport).ForceAttemptHTTP2 = true
+	http.DefaultClient.Timeout = 5 * time.Second
+
 	checkUserPassword()
 	userCacheInitialize()
 	itemCacheInitialize()
