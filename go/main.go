@@ -2245,6 +2245,12 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if shipping.Status != ShippingsStatusShipping && shipping.Status != ShippingsStatusDone {
+		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
+		tx.Rollback()
+		return
+	}
+
 	if shipping.Status != ShippingsStatusDone {
 		ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 			ReserveID: shipping.ReserveID,
