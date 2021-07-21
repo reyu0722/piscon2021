@@ -1578,11 +1578,7 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 }
 
 var itemBuying map[int64]*sync.Mutex
-
 func postBuy(w http.ResponseWriter, r *http.Request) {
-	if itemBuying == nil {
-		itemBuying = make(map[int64]*sync.Mutex)
-	}
 	rb := reqBuy{}
 
 	err := json.NewDecoder(r.Body).Decode(&rb)
@@ -1603,36 +1599,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "no session")
 		return
 	}
-	mutex, ok := itemBuying[rb.ItemID]
-	if !ok {
-		mutex = new(sync.Mutex)
-		itemBuying[rb.ItemID] = mutex
-	}
-
-	type ItemData struct {
-		Status string `json:"status" db:"status"`
-		Price  int    `json:"price" db:"price"`
-	}
-
-	queryStr := `SELECT status, price FROM items where id = ?`
-
-
-
-	/*
-		targetItem, err := getItemCached(dbx, rb.ItemID)
-		if err == sql.ErrNoRows {
-			outputErrorMsg(w, http.StatusNotFound, "item not found")
-			return
-		}
-		if err != nil {
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			return
-		}
-	*/
-
-	// mutex.Lock()
-	// defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1642,9 +1608,37 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type UserSimpleDB struct {
+		ID          sql.NullInt64  `json:"id" db:"id"`
+		AccountName sql.NullString `json:"account_name" db:"account_name"`
+		Address     sql.NullString `json:"address" db:"address"`
+	}
+	type ItemDetail struct {
+		ID          int64         `json:"id" db:"id"`
+		SellerID    int64         `json:"seller_id" db:"seller_id"`
+		Seller      *UserSimpleDB `json:"seller" db:"seller"`
+		Buyer       *UserSimpleDB `json:"buyer" db:"buyer"`
+		Status      string        `json:"status" db:"status"`
+		Name        string        `json:"name" db:"name"`
+		Price       int           `json:"price" db:"price"`
+		Description string        `json:"description" db:"description"`
+		CategoryID  int           `json:"category_id" db:"category_id"`
+	}
 
-	itemData := ItemData{}
-	err = tx.Get(&itemData, queryStr + " FOR UPDATE", rb.ItemID)
+	queryStr := `SELECT i.id, i.seller_id, i.status, i.name, i.price, i.description, i.category_id, 
+		u.id as "seller.id",
+		u.account_name as "seller.account_name",
+		u.address as "seller.address",
+		u2.id as "buyer.id",
+		u2.account_name as "buyer.account_name",
+		u2.address as "buyer.address"
+		FROM (SELECT * from items where id = ? FOR UPDATE) i 
+		left outer join users u on u.id=i.seller_id
+		left outer join users u2 on u2.id=? 
+	`
+
+	targetItem := ItemDetail{}
+	err = tx.Get(&targetItem, queryStr, rb.ItemID, buyerID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1657,60 +1651,42 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	targetItem, err := getItemCached(dbx, rb.ItemID)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "item not found")
-		tx.Rollback()
-		return
-	}
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
 
-	if itemData.Status != ItemStatusOnSale {
+	if targetItem.Status != ItemStatusOnSale {
 		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
 		tx.Rollback()
 		return
 	}
+
 	if targetItem.SellerID == buyerID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		tx.Rollback()
 		return
 	}
-	seller, err := getUserFromCache(dbx, targetItem.SellerID)
-	if err != nil {
+
+	if !targetItem.Seller.ID.Valid {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		tx.Rollback()
 		return
 	}
 
-	buyer, err := getUserFromCache(dbx, buyerID.(int64))
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-		tx.Rollback()
-		return
+	seller := User{
+		ID:          targetItem.Seller.ID.Int64,
+		AccountName: targetItem.Seller.AccountName.String,
+		Address:     targetItem.Seller.Address.String,
+	}
+
+	buyer := User{
+		ID:          targetItem.Buyer.ID.Int64,
+		AccountName: targetItem.Buyer.AccountName.String,
+		Address:     targetItem.Buyer.Address.String,
 	}
 
 	category, err := getCategoryByID(dbx, targetItem.CategoryID)
 	if err != nil {
 		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
-		tx.Rollback()
-		return
-	}
 
-	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyerID,
-		ItemStatusTrading,
-		time.Now(),
-		targetItem.ID,
-	)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		outputErrorMsg(w, http.StatusInternalServerError, "category id error")
 		tx.Rollback()
 		return
 	}
@@ -1736,7 +1712,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			ShopID: PaymentServiceIsucariShopID,
 			Token:  rb.Token,
 			APIKey: PaymentServiceIsucariAPIKey,
-			Price:  itemData.Price,
+			Price:  targetItem.Price,
 		})
 		return err
 	})
@@ -1747,7 +1723,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		TransactionEvidenceStatusWaitShipping,
 		targetItem.ID,
 		targetItem.Name,
-		itemData.Price,
+		targetItem.Price,
 		targetItem.Description,
 		category.ID,
 		category.ParentID,
@@ -1761,6 +1737,20 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	transactionEvidenceID, err := result.LastInsertId()
+	if err != nil {
+		log.Print(err)
+
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyerID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
 	if err != nil {
 		log.Print(err)
 
