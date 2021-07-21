@@ -343,6 +343,16 @@ func main() {
 
 	mux := goji.NewMux()
 
+	if itemAllCache == nil {
+		itemAllCache = make(map[int64]ItemDetailDB)
+	}
+	if itemAllCacheAble == nil {
+		itemAllCacheAble = make(map[int64]bool)
+	}
+	if userSimpleCacheAble == nil {
+		userSimpleCacheAble = make(map[int64]bool)
+	}
+
 	checkUserPassword()
 	userCacheInitialize()
 	itemCacheInitialize()
@@ -1306,16 +1316,6 @@ var itemAllCacheAble map[int64]bool
 var userSimpleCacheAble map[int64]bool
 
 func getItem(w http.ResponseWriter, r *http.Request) {
-	if itemAllCache == nil {
-		itemAllCache = make(map[int64]ItemDetailDB)
-	}
-	if itemAllCacheAble == nil {
-		itemAllCacheAble = make(map[int64]bool)
-	}
-	if userSimpleCacheAble == nil {
-		userSimpleCacheAble = make(map[int64]bool)
-	}
-
 	itemIDStr := pat.Param(r, "item_id")
 	itemID, err := strconv.ParseInt(itemIDStr, 10, 64)
 	if err != nil || itemID <= 0 {
