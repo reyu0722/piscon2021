@@ -492,7 +492,7 @@ type UserCached struct {
 func userCacheInitialize() {
 	userMap = map[int64]*UserCached{}
 	users := []UserCached{}
-	err := dbx.Select(&users, "SELECT * FROM `users`")
+	err := dbx.Select(&users, "SELECT id, account_name, hashed_password, address FROM `users`")
 	if err != nil {
 		log.Print(err)
 		return
@@ -508,7 +508,7 @@ func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	// userMapMux.RUnlock()
 	if !ok {
 		user := UserCached{}
-		err := sqlx.Get(q, &user, "SELECT * from users WHERE id = ?", id)
+		err := sqlx.Get(q, &user, "SELECT id, account_name, hashed_password, address from users WHERE id = ?", id)
 		if err != nil {
 			log.Print(err)
 			return UserCached{}, err
