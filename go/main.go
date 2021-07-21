@@ -342,9 +342,6 @@ func main() {
 
 	mux := goji.NewMux()
 
-	itemDetailCache = make(map[int64]ItemCache)
-
-	userSimpleCache = make(map[int64]UserSimpleCache)
 
 	checkUserPassword()
 	userCacheInitialize()
@@ -509,21 +506,7 @@ func userCacheInitialize() {
 		userCache[user.ID] = &user
 	}
 }
-func userSimpleCacheInitialize() {
-	users := []UserSimpleDB{}
-	err := dbx.Select(&users, "SELECT * FROM `users`")
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	for _, user := range users {
-		userSimpleCache[user.ID.Int64] = UserSimpleCache{
-			User:  user,
-			mutex: &sync.Mutex{},
-			IsNew: true,
-		}
-	}
-}
+
 
 func getUserFromCache(q sqlx.Queryer, id int64) (UserCached, error) {
 	_, ok := userCache[id]
@@ -551,19 +534,6 @@ func addUserCache(user User) {
 	}
 }
 
-func addUserSimpleCache(user User) {
-	if _, ok := userSimpleCache[user.ID]; !ok {
-		userSimpleCache[user.ID] = UserSimpleCache{
-			User: UserSimpleDB{
-				ID:           sql.NullInt64{Int64: user.ID, Valid: true},
-				AccountName:  sql.NullString{String: user.AccountName, Valid: true},
-				NumSellItems: sql.NullInt32{Int32: int32(user.NumSellItems), Valid: true},
-			},
-			mutex: &sync.Mutex{},
-			IsNew: true,
-		}
-	}
-}
 
 type ItemCached struct {
 	ID          int64  `json:"id" db:"id"`
@@ -589,37 +559,7 @@ func itemCacheInitialize() {
 	}
 }
 
-func itemDetailCacheInitialize() {
-	items := []ItemDetailDB{}
-	query := `SELECT i.*, 
-		u.id as "seller.id",
-		u.account_name as "seller.account_name",
-		u.num_sell_items as "seller.num_sell_items",
-		u2.id as "buyer.id",
-		u2.account_name as "buyer.account_name",
-		u2.num_sell_items as "buyer.num_sell_items",
-		t.id as "transaction_evidence_id",
-		t.status as "transaction_evidence_status",
-		s.status as "shipping_status"
-		FROM items i 
-		left outer join users u on u.id=i.seller_id 
-		left outer join users u2 on u2.id=i.buyer_id
-		left outer join transaction_evidences t on t.item_id=i.id
-		left outer join shippings s on s.transaction_evidence_id=t.id 
-	`
-	err := dbx.Select(&items, query)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	for _, item := range items {
-		itemDetailCache[item.ID] = ItemCache{
-			Item:  item,
-			mutex: &sync.Mutex{},
-			IsNew: true,
-		}
-	}
-}
+
 
 func getItemCached(q sqlx.Queryer, id int64) (ItemCached, error) {
 	if itemCache == nil {
@@ -652,15 +592,7 @@ func addItemCache(item Item) {
 	}
 }
 
-func addItemDetailCache(item ItemDetailDB) {
-	if _, ok := itemDetailCache[item.ID]; !ok {
-		itemDetailCache[item.ID] = ItemCache{
-			Item:  item,
-			mutex: &sync.Mutex{},
-			IsNew: true,
-		}
-	}
-}
+
 
 func getConfigByName(name string) (string, error) {
 	config := Config{}
@@ -736,7 +668,7 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 
 	res := resInitialize{
 		// キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
-		Campaign: 1,
+		Campaign: 4,
 		// 実装言語を返す
 		Language: "Go",
 	}
@@ -1387,45 +1319,7 @@ type ItemDetailDB struct {
 	CreatedAt                 time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at" db:"updated_at"`
 }
-type ItemCache struct {
-	Item  ItemDetailDB
-	mutex *sync.Mutex
-	IsNew bool
-}
 
-func (c ItemCache) Used() {
-	c.mutex.Lock()
-	c.IsNew = false
-	c.mutex.Unlock()
-}
-
-func (c ItemCache) Set(item ItemDetailDB) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.Item = item
-	c.IsNew = true
-}
-
-type UserSimpleCache struct {
-	User  UserSimpleDB
-	mutex *sync.Mutex
-	IsNew bool
-}
-
-func (c UserSimpleCache) Used() {
-	c.mutex.Lock()
-	c.IsNew = false
-	c.mutex.Unlock()
-}
-func (c UserSimpleCache) Set(user UserSimpleDB) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.User = user
-	c.IsNew = true
-}
-
-var itemDetailCache map[int64]ItemCache
-var userSimpleCache map[int64]UserSimpleCache
 
 func getItem(w http.ResponseWriter, r *http.Request) {
 	itemIDStr := pat.Param(r, "item_id")
@@ -1658,10 +1552,6 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-
-	if c, ok := itemDetailCache[itemID]; ok {
-		c.Used()
-	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
@@ -1968,9 +1858,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	if c, ok := itemDetailCache[targetItem.ID]; ok {
-		c.Used()
-	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
@@ -2113,9 +2000,6 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	if c, ok := itemDetailCache[itemID]; ok {
-		c.Used()
-	}
 
 	rps := resPostShip{
 		Path:      fmt.Sprintf("/transactions/%d.png", item.TransactionEvidenceID.Int64),
@@ -2279,9 +2163,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	if c, ok := itemDetailCache[itemID]; ok {
-		c.Used()
-	}
+
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: item.TransactionEvidenceID.Int64})
@@ -2471,9 +2353,6 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	if c, ok := itemDetailCache[itemID]; ok {
-		c.Used()
-	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
@@ -2628,30 +2507,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		SellerID:    seller.ID,
 	})
 
-	addItemDetailCache(ItemDetailDB{
-		ID:       itemID,
-		SellerID: seller.ID,
-		Seller: &UserSimpleDB{
-			ID: sql.NullInt64{
-				Int64: seller.ID,
-				Valid: true,
-			},
-			AccountName: sql.NullString{
-				String: seller.AccountName,
-				Valid:  true,
-			},
-			NumSellItems: sql.NullInt32{
-				Int32: int32(seller.NumSellItems),
-				Valid: true,
-			},
-		},
-		Status:      ItemStatusOnSale,
-		Name:        name,
-		Price:       price,
-		Description: description,
-		ImageName:   imgName,
-		CategoryID:  category.ID,
-	})
 
 	now := time.Now()
 	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
@@ -2666,9 +2521,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tx.Commit()
-	if c, ok := userSimpleCache[seller.ID]; ok {
-		c.Used()
-	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resSell{ID: itemID})
@@ -2797,9 +2649,6 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
-	if c, ok := itemDetailCache[itemID]; ok {
-		c.Used()
-	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
@@ -3004,11 +2853,6 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		AccountName:    accountName,
 		Address:        address,
 		HashedPassword: hashedPassword,
-	})
-	addUserSimpleCache(User{
-		ID:           userID,
-		AccountName:  accountName,
-		NumSellItems: 0,
 	})
 
 	session := getSession(r)
