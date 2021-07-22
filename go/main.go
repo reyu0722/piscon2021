@@ -2363,8 +2363,8 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(&resItemEdit{
 		ItemID:        targetItem.ID,
 		ItemPrice:     targetItem.Price,
-		ItemCreatedAt: targetItem.CreatedAt.Unix(),
-		ItemUpdatedAt: targetItem.UpdatedAt.Unix(),
+		ItemCreatedAt: now.Unix(),
+		ItemUpdatedAt: now.Unix(),
 	})
 	if err != nil {
 		log.Print(err)
