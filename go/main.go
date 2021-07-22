@@ -1732,6 +1732,14 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mutex, ok := itemBuying[itemID]
+	if !ok {
+		mutex = &sync.Mutex{}
+		itemBuying[itemID] = mutex
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	tx, err := dbx.Beginx()
 	if err != nil {
 		log.Print(err)
@@ -1835,6 +1843,14 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+
+	mutex, ok := itemBuying[itemID]
+	if !ok {
+		mutex = &sync.Mutex{}
+		itemBuying[itemID] = mutex
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
@@ -1962,6 +1978,14 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
 		return
 	}
+
+	mutex, ok := itemBuying[itemID]
+	if !ok {
+		mutex = &sync.Mutex{}
+		itemBuying[itemID] = mutex
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	tx, err := dbx.Beginx()
 	if err != nil {
