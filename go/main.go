@@ -477,8 +477,10 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (Category, error) {
 }
 
 var (
-	userMap    = map[int64]*User{}
-	userMapMux = sync.RWMutex{}
+	userMap           = map[int64]*User{}
+	userMapMux        = sync.RWMutex{}
+	accountNameMap    = map[string]int64{}
+	accountNameMapMux = sync.RWMutex{}
 )
 
 func userCacheInitialize() {
@@ -491,6 +493,7 @@ func userCacheInitialize() {
 	}
 	for i := range users {
 		userMap[users[i].ID] = &users[i]
+		accountNameMap[users[i].AccountName] = users[i].ID
 	}
 }
 
@@ -1188,9 +1191,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 type ItemDetailDB struct {
 	ID                        int64          `json:"id" db:"id"`
 	SellerID                  int64          `json:"seller_id" db:"seller_id"`
-	Seller                    *UserSimpleDB  `json:"seller" db:"seller"`
 	BuyerID                   int64          `json:"buyer_id,omitempty" db:"buyer_id"`
-	Buyer                     *UserSimpleDB  `json:"buyer,omitempty" db:"buyer"`
 	Status                    string         `json:"status" db:"status"`
 	Name                      string         `json:"name" db:"name"`
 	Price                     int            `json:"price" db:"price"`
@@ -1224,34 +1225,12 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		return
 	}
-	/*
-		canUseCache := false
-		item := ItemDetailDB{}
-		itemCache, ok := itemDetailCache[itemID]
-		if ok {
-			item = itemCache.Item
-			if _, ok = userSimpleCache[item.SellerID]; ok {
-				if _, ok = userSimpleCache[item.BuyerID]; ok || item.BuyerID == 0 {
-					canUseCache = true
-				}
-			}
-		}
 
-		if !canUseCache {
-	*/
 	queryStr := `SELECT i.*, 
-		u.id as "seller.id",
-		u.account_name as "seller.account_name",
-		u.num_sell_items as "seller.num_sell_items",
-		u2.id as "buyer.id",
-		u2.account_name as "buyer.account_name",
-		u2.num_sell_items as "buyer.num_sell_items",
 		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence_status",
 		s.status as "shipping_status"
 		FROM items i 
-		left outer join users u on u.id=i.seller_id 
-		left outer join users u2 on u2.id=i.buyer_id and (u.id=? or u2.id=?)
 		left outer join transaction_evidences t on t.item_id=i.id
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
@@ -1280,8 +1259,8 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "category not found")
 		return
 	}
-
-	if !item.Seller.ID.Valid {
+	seller, err := getUserSimpleByID(item.SellerID)
+	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		return
 	}
@@ -1289,11 +1268,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	itemDetail := ItemDetail{
 		ID:       item.ID,
 		SellerID: item.SellerID,
-		Seller: &UserSimple{
-			ID:           item.SellerID,
-			AccountName:  item.Seller.AccountName.String,
-			NumSellItems: int(item.Seller.NumSellItems.Int32),
-		},
+		Seller:   seller,
 		// BuyerID
 		// Buyer
 		Status:      item.Status,
@@ -1309,13 +1284,10 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: item.CreatedAt.Unix(),
 	}
 
-	if item.Buyer.ID.Valid {
+	buyer, err := getUserSimpleByID(item.BuyerID)
+	if err != nil {
 		itemDetail.BuyerID = item.BuyerID
-		itemDetail.Buyer = &UserSimple{
-			ID:           item.BuyerID,
-			AccountName:  item.Buyer.AccountName.String,
-			NumSellItems: int(item.Buyer.NumSellItems.Int32),
-		}
+		itemDetail.Buyer = buyer
 
 		if item.TransactionEvidenceID.Int64 > 0 {
 			if !item.ShippingStatus.Valid {
@@ -2334,29 +2306,18 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := dbx.Beginx()
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	seller := User{}
-	err = tx.Get(&seller, "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", user.ID)
+	seller, err := getUser(user.ID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
-		tx.Rollback()
 		return
 	}
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
 		return
 	}
 
-	result, err := tx.Exec("INSERT INTO `items` (`seller_id`, `status`, `name`, `price`, `description`,`image_name`,`category_id`) VALUES (?, ?, ?, ?, ?, ?, ?)",
+	result, err := dbx.Exec("INSERT INTO `items` (`seller_id`, `status`, `name`, `price`, `description`,`image_name`,`category_id`) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		seller.ID,
 		ItemStatusOnSale,
 		name,
@@ -2393,20 +2354,6 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	userMap[user.ID].NumSellItems += 1
 	userMap[user.ID].LastBump = time.Now()
 	userMapMux.Unlock()
-
-	now := time.Now()
-	_, err = tx.Exec("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?",
-		seller.NumSellItems+1,
-		now,
-		seller.ID,
-	)
-	if err != nil {
-		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-	tx.Commit()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resSell{ID: itemID})
@@ -2481,8 +2428,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller := User{}
-	err = tx.Get(&seller, "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", user.ID)
+	seller, err := getUser(user.ID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		tx.Rollback()
@@ -2519,17 +2465,6 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	userMap[user.ID].LastBump = now
 	userMapMux.Unlock()
 
-	_, err = tx.Exec("UPDATE `users` SET `last_bump`=? WHERE id=?",
-		now,
-		seller.ID,
-	)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
 	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ?", itemID)
 	if err != nil {
 		log.Print(err)
@@ -2560,13 +2495,12 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 
 	session := getSession(r)
 	userID, ok := session.Values["user_id"]
-	user := User{}
 	if ok {
-		err := dbx.Get(&user, "SELECT * FROM `users` WHERE `id` = ?", userID)
+		user, err := getUser(userID.(int64))
 		if err != nil {
 			log.Print(err)
 		} else {
-			ress.User = &user
+			ress.User = user
 		}
 	}
 
@@ -2622,10 +2556,11 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusBadRequest, "all parameters are required")
 		return
 	}
+	accountNameMapMux.RLock()
+	id, ok := accountNameMap[accountName]
+	accountNameMapMux.RUnlock()
 
-	u := User{}
-	err = dbx.Get(&u, "SELECT * FROM `users` WHERE `account_name` = ?", accountName)
-	if err == sql.ErrNoRows {
+	if !ok {
 		outputErrorMsg(w, http.StatusUnauthorized, "アカウント名かパスワードが間違えています")
 		return
 	}
@@ -2635,6 +2570,8 @@ func postLogin(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+
+	u, _ := getUser(id)
 
 	if newPassword, ok := newPasswords[u.ID]; !ok {
 		err = bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(password))
@@ -2719,26 +2656,8 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := dbx.Exec("INSERT INTO `users` (`account_name`, `hashed_password`, `address`) VALUES (?, ?, ?)",
-		accountName,
-		hashedPassword,
-		address,
-	)
-	if err != nil {
-		log.Print(err)
+	userID := int64(len(userMap) + 1)
 
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-
-	userID, err := result.LastInsertId()
-
-	if err != nil {
-		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
 
 	u := User{
 		ID:          userID,
@@ -2761,6 +2680,10 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:      time.Now(),
 	}
 	userMapMux.Unlock()
+
+	accountNameMapMux.Lock()
+	accountNameMap[accountName] = userID
+	accountNameMapMux.Unlock()
 
 	session := getSession(r)
 	session.Values["user_id"] = u.ID
