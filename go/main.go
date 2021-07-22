@@ -1695,6 +1695,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	itemMapMux.Lock()
 	itemMap[targetItem.ID].BuyerID = buyerID.(int64)
+	itemMap[targetItem.ID].Status = ItemStatusTrading
 	itemMapMux.Unlock()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
