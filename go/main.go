@@ -1693,6 +1693,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 	shippingMapMux.Unlock()
 
+	itemMapMux.Lock()
+	itemMap[targetItem.ID].BuyerID = buyerID.(int64)
+	itemMapMux.Unlock()
+
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
 	if err != nil {
