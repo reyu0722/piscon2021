@@ -1748,40 +1748,26 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	tx, err := dbx.Beginx()
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	var status string
 	item, err := getItem(itemID)
-	err = tx.Get(&status, "SELECT status from items WHERE id = ? FOR UPDATE", itemID)
 
 	transaction, err := getTransaction(itemID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "transaction_evidences not found")
-		tx.Rollback()
 		return
 	}
 
 	if transaction.SellerID != seller.ID {
 		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
-		tx.Rollback()
 		return
 	}
 
 	if item.Status != ItemStatusTrading {
 		outputErrorMsg(w, http.StatusForbidden, "商品が取引中ではありません")
-		tx.Rollback()
 		return
 	}
 
 	if transaction.Status != TransactionEvidenceStatusWaitShipping {
 		outputErrorMsg(w, http.StatusForbidden, "準備ができていません")
-		tx.Rollback()
 		return
 	}
 
@@ -1789,7 +1775,6 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "shippings not found")
-		tx.Rollback()
 		return
 	}
 
@@ -1799,11 +1784,8 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-		tx.Rollback()
 		return
 	}
-
-	tx.Commit()
 
 	shippingMapMux.Lock()
 	shippingMap[itemID].Status = ShippingsStatusWaitPickup
@@ -1851,6 +1833,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	item, err := getItem(itemID)
 
 	mutex, ok := itemBuying[itemID]
 	if !ok {
@@ -1860,46 +1843,30 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	tx, err := dbx.Beginx()
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	var status string
-	err = tx.Get(&status, "SELECT status from items WHERE id = ? FOR UPDATE", itemID)
-
 	transaction, err := getTransaction(itemID)
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "transaction_evidence not found")
-		tx.Rollback()
 		return
 	}
 
 	if transaction.SellerID != seller.ID {
 		outputErrorMsg(w, http.StatusForbidden, "権限がありません")
-		tx.Rollback()
 		return
 	}
 
-	if status != ItemStatusTrading {
+	if item.Status != ItemStatusTrading {
 		outputErrorMsg(w, http.StatusForbidden, "商品が取引中ではありません")
-		tx.Rollback()
 		return
 	}
 
 	if transaction.Status != TransactionEvidenceStatusWaitShipping {
 		outputErrorMsg(w, http.StatusForbidden, "準備ができていません")
-		tx.Rollback()
 		return
 	}
 	shipping, err := getShipping(itemID)
 
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "shippings not found")
-		tx.Rollback()
 		return
 	}
 
@@ -1909,18 +1876,13 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-		tx.Rollback()
-
 		return
 	}
 
 	if !(ssr.Status == ShippingsStatusShipping || ssr.Status == ShippingsStatusDone) {
 		outputErrorMsg(w, http.StatusForbidden, "shipment service側で配送中か配送完了になっていません")
-		tx.Rollback()
 		return
 	}
-
-	tx.Commit()
 
 	shippingMapMux.Lock()
 	shippingMap[itemID].Status = ssr.Status
@@ -1995,33 +1957,21 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	tx, err := dbx.Beginx()
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	var status string
-	err = tx.Get(&status, "SELECT status from items WHERE i.id = ? FOR UPDATE", itemID)
+	_, err = getItem(itemID)
 
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "items not found")
-		tx.Rollback()
 		return
 	}
 	transactionEvidence, err = getTransaction(itemID)
 
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "transaction_evidences not found")
-		tx.Rollback()
 		return
 	}
 
 	if transactionEvidence.Status != TransactionEvidenceStatusWaitDone {
 		outputErrorMsg(w, http.StatusForbidden, "準備ができていません")
-		tx.Rollback()
 		return
 	}
 
@@ -2030,13 +1980,11 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
 		return
 	}
 
 	if shipping.Status != ShippingsStatusShipping && shipping.Status != ShippingsStatusDone {
 		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
-		tx.Rollback()
 		return
 	}
 
@@ -2047,18 +1995,15 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Print(err)
 			outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-			tx.Rollback()
-
 			return
 		}
 		if !(ssr.Status == ShippingsStatusDone) {
 			outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
-			tx.Rollback()
 			return
 		}
 	}
 
-	_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
+	_, err = dbx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
 		ItemStatusSoldOut,
 		time.Now(),
 		itemID,
@@ -2067,11 +2012,8 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
 		return
 	}
-
-	tx.Commit()
 
 	shippingMapMux.Lock()
 	shippingMap[itemID].Status = ShippingsStatusDone
