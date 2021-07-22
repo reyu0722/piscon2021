@@ -1672,8 +1672,11 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
-
 	transactionMapMux.Unlock()
+
+	transactionIDMapMux.Lock()
+	transactionIDMap[transactionEvidenceID] = targetItem.ID
+	transactionIDMapMux.Unlock()
 
 	shippingMapMux.Lock()
 	shippingMap[targetItem.ID] = &Shipping{
