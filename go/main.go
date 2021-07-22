@@ -1235,7 +1235,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		left outer join shippings s on s.transaction_evidence_id=t.id 
 	`
 	item := ItemDetailDB{}
-	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", user.ID, userID, itemID)
+	err = dbx.Get(&item, queryStr+" WHERE i.id = ?", itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1285,7 +1285,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buyer, err := getUserSimpleByID(item.BuyerID)
-	if err != nil {
+	if err != nil && (user.ID == buyer.ID || user.ID == seller.ID) {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = buyer
 
@@ -2657,7 +2657,6 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := int64(len(userMap) + 1)
-
 
 	u := User{
 		ID:          userID,
