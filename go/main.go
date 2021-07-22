@@ -1047,6 +1047,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 	itemDetailDBs := []ItemDetailDB{}
 	queryStr := `SELECT i.*, 
+		t.id as "transaction_evidence_id",
 		t.status as "transaction_evidence_status",
 		s.status as "shipping_status"
 		FROM items i 
