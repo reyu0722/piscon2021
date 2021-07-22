@@ -2239,6 +2239,8 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 
 	targetItem := Item{}
 	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+	itemMapMux.Lock()
+	defer itemMapMux.Unlock()
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -2296,10 +2298,9 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 
 	tx.Commit()
 
-	itemMapMux.Lock()
+	
 	itemMap[targetItem.ID].CreatedAt = now
 	itemMap[targetItem.ID].UpdatedAt = now
-	itemMapMux.Unlock()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	err = json.NewEncoder(w).Encode(&resItemEdit{
