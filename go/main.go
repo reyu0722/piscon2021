@@ -1285,7 +1285,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buyer, err := getUserSimpleByID(item.BuyerID)
-	if err != nil && (user.ID == buyer.ID || user.ID == seller.ID) {
+	if err == nil && (user.ID == buyer.ID || user.ID == seller.ID) {
 		itemDetail.BuyerID = item.BuyerID
 		itemDetail.Buyer = buyer
 
