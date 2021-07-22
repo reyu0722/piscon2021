@@ -2279,8 +2279,8 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = tx.Exec("UPDATE `items` SET `created_at`=?, `updated_at`=? WHERE id=?",
-		now.Unix(),
-		now.Unix(),
+		now,
+		now,
 		targetItem.ID,
 	)
 	if err != nil {
