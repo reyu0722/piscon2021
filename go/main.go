@@ -1360,7 +1360,7 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		return
 	}
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+	err = tx.Get(targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
